@@ -1,0 +1,41 @@
+{
+    "industry_scores": {
+        "Retail": {
+            "score": 25,
+            "workloads": [
+                "Customer Profile",
+                "Catalog",
+                "Inventory",
+                "Shopping Cart",
+                "Personalization"
+            ]
+        },
+
+        "Healthcare": {
+            "score": 23,
+            "workloads": [
+                "Patient Profile",
+                "Healthcare Applications",
+                "Identity"
+            ]
+        },
+
+        "Financial Services": {
+            "score": 25,
+            "workloads": [
+                "Customer 360",
+                "Fraud Detection",
+                "Account Services"
+            ]
+        },
+
+        "Technology": {
+            "score": 20,
+            "workloads": [
+                "Operational Applications",
+                "API Platforms",
+                "Microservices"
+            ]
+        }
+    }
+}

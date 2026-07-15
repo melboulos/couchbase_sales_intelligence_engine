@@ -1,0 +1,160 @@
+{
+    "known_companies": {
+
+        "netspend": {
+            "business_model": "FinTech",
+            "industry": "Financial Services",
+            "workloads": [
+                "Payments",
+                "Customer Accounts",
+                "Transaction Processing",
+                "Fraud Detection"
+            ],
+            "score_boost": 25,
+            "reason": "Payments platforms require highly available, low latency operational databases for customer accounts and transactions."
+        },
+
+        "redox": {
+            "business_model": "Healthcare Technology",
+            "industry": "Healthcare",
+            "workloads": [
+                "Healthcare APIs",
+                "Patient Data",
+                "Data Exchange",
+                "Integration Platform"
+            ],
+            "score_boost": 25,
+            "reason": "Healthcare integration platforms require scalable operational data management and API-driven architectures."
+        },
+
+        "peopleadmin": {
+            "business_model": "HR SaaS",
+            "industry": "Technology / SaaS",
+            "workloads": [
+                "Employee Profiles",
+                "Workflow Applications",
+                "Multi Tenant SaaS"
+            ],
+            "score_boost": 20,
+            "reason": "HR SaaS platforms commonly operate multi-tenant applications requiring flexible operational databases."
+        },
+
+        "staywell": {
+            "business_model": "Healthcare Technology",
+            "industry": "Healthcare",
+            "workloads": [
+                "Patient Engagement",
+                "Healthcare Applications",
+                "Customer Profiles"
+            ],
+            "score_boost": 20,
+            "reason": "Healthcare engagement platforms require scalable applications managing patient and member data."
+        },
+
+        "cleo": {
+            "business_model": "Integration Platform",
+            "industry": "Technology / SaaS",
+            "workloads": [
+                "API Platform",
+                "Integration Services",
+                "Operational Applications"
+            ],
+            "score_boost": 20,
+            "reason": "Integration platforms commonly require high throughput operational data services."
+        },
+
+        "openkey": {
+            "business_model": "Travel Technology",
+            "industry": "Travel",
+            "workloads": [
+                "Mobile Applications",
+                "Customer Identity",
+                "Real-Time Access"
+            ],
+            "score_boost": 20,
+            "reason": "Mobile-first travel applications require low latency distributed data access."
+        }
+    },
+
+
+    "business_patterns": {
+
+        "FinTech": {
+            "keywords": [
+                "payment",
+                "payments",
+                "pay",
+                "bank",
+                "financial",
+                "capital",
+                "credit",
+                "transaction",
+                "card"
+            ],
+            "industry": "Financial Services",
+            "workloads": [
+                "Customer 360",
+                "Transaction Processing",
+                "Fraud Detection"
+            ],
+            "score_boost": 15
+        },
+
+
+        "Healthcare Technology": {
+            "keywords": [
+                "health",
+                "medical",
+                "patient",
+                "clinical",
+                "care",
+                "pharma"
+            ],
+            "industry": "Healthcare",
+            "workloads": [
+                "Patient Profile",
+                "Healthcare Applications",
+                "Identity"
+            ],
+            "score_boost": 15
+        },
+
+
+        "SaaS": {
+            "keywords": [
+                "software",
+                "platform",
+                "systems",
+                "solutions",
+                "cloud",
+                "technology",
+                "application"
+            ],
+            "industry": "Technology / SaaS",
+            "workloads": [
+                "User Profiles",
+                "Multi Tenant SaaS",
+                "API Applications"
+            ],
+            "score_boost": 15
+        },
+
+
+        "AI Data Company": {
+            "keywords": [
+                "analytics",
+                "machine learning",
+                "artificial",
+                "intelligence"
+            ],
+            "industry": "Technology / SaaS",
+            "workloads": [
+                "Vector Search",
+                "Operational AI",
+                "Data Applications"
+            ],
+            "score_boost": 15
+        }
+
+    }
+}

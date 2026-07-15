@@ -1,0 +1,70 @@
+[
+    {
+        "keywords": [
+            "software",
+            "saas",
+            "technology",
+            "platform",
+            "systems"
+        ],
+        "company_size": "Technology Company",
+        "estimated_revenue": "Potential Enterprise",
+        "cloud_adoption": "Likely Cloud",
+        "engineering_signal": "High",
+        "database_signal": "Application Data",
+        "kubernetes_signal": "Possible",
+        "ai_initiatives": "Possible",
+        "news_signal": "Unknown",
+        "score": 20
+    },
+    {
+        "keywords": [
+            "financial",
+            "payment",
+            "bank",
+            "capital",
+            "fintech"
+        ],
+        "company_size": "Enterprise Financial",
+        "estimated_revenue": "Enterprise",
+        "cloud_adoption": "Likely Cloud",
+        "engineering_signal": "High",
+        "database_signal": "Transactional Data",
+        "kubernetes_signal": "Possible",
+        "ai_initiatives": "Fraud AI Potential",
+        "news_signal": "Unknown",
+        "score": 25
+    },
+    {
+        "keywords": [
+            "health",
+            "medical",
+            "healthcare"
+        ],
+        "company_size": "Healthcare Organization",
+        "estimated_revenue": "Enterprise",
+        "cloud_adoption": "Likely Cloud",
+        "engineering_signal": "Medium",
+        "database_signal": "Patient Data",
+        "kubernetes_signal": "Possible",
+        "ai_initiatives": "Healthcare AI Potential",
+        "news_signal": "Unknown",
+        "score": 25
+    },
+    {
+        "keywords": [
+            "rail",
+            "transportation",
+            "logistics"
+        ],
+        "company_size": "Enterprise",
+        "estimated_revenue": "Enterprise",
+        "cloud_adoption": "Modernization Opportunity",
+        "engineering_signal": "Medium",
+        "database_signal": "Operational Data",
+        "kubernetes_signal": "Possible",
+        "ai_initiatives": "Optimization AI Potential",
+        "news_signal": "Unknown",
+        "score": 20
+    }
+]

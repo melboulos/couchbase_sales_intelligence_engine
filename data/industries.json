@@ -1,0 +1,234 @@
+{
+    "Retail": {
+        "keywords": [
+            "retail",
+            "store",
+            "stores",
+            "commerce",
+            "ecommerce",
+            "shopping",
+            "fashion",
+            "apparel",
+            "grocery",
+            "market",
+            "marketplace",
+            "consumer",
+            "brands",
+            "outlet"
+        ],
+        "workloads": [
+            "Customer Profile",
+            "Product Catalog",
+            "Inventory",
+            "Shopping Cart",
+            "Order Processing",
+            "Personalization",
+            "Recommendations",
+            "Mobile Applications"
+        ],
+        "fit_score": 25,
+        "reason": "Retail companies commonly operate high-volume customer-facing applications requiring low latency, flexible data models, and personalization."
+    },
+
+    "Healthcare": {
+        "keywords": [
+            "health",
+            "healthcare",
+            "medical",
+            "medicine",
+            "hospital",
+            "clinic",
+            "pharma",
+            "pharmaceutical",
+            "patient",
+            "care",
+            "diagnostic",
+            "life science",
+            "wellness"
+        ],
+        "workloads": [
+            "Patient Profile",
+            "Provider Applications",
+            "Healthcare Portals",
+            "Identity",
+            "Claims Processing",
+            "Mobile Applications"
+        ],
+        "fit_score": 24,
+        "reason": "Healthcare organizations require secure, scalable operational applications and distributed data access."
+    },
+
+    "Financial Services": {
+        "keywords": [
+            "bank",
+            "banking",
+            "financial",
+            "finance",
+            "insurance",
+            "insure",
+            "capital",
+            "investment",
+            "payment",
+            "payments",
+            "credit",
+            "loan",
+            "wealth",
+            "mortgage",
+            "card"
+        ],
+        "workloads": [
+            "Customer 360",
+            "Account Services",
+            "Fraud Detection",
+            "Transaction Processing",
+            "Mobile Banking",
+            "Risk Applications"
+        ],
+        "fit_score": 25,
+        "reason": "Financial services workloads require high availability, low latency transactions, and operational scalability."
+    },
+
+    "Technology / SaaS": {
+        "keywords": [
+            "software",
+            "technology",
+            "technologies",
+            "platform",
+            "systems",
+            "solutions",
+            "cloud",
+            "data",
+            "analytics",
+            "security",
+            "network",
+            "digital",
+            "automation",
+            "api",
+            "application",
+            "applications",
+            "developer",
+            "development"
+        ],
+        "workloads": [
+            "SaaS Applications",
+            "User Profiles",
+            "Configuration Data",
+            "API Platforms",
+            "Microservices",
+            "Operational Applications",
+            "Event Processing"
+        ],
+        "fit_score": 22,
+        "reason": "Technology companies often build distributed applications requiring flexible JSON models and scalable operational databases."
+    },
+
+    "Manufacturing": {
+        "keywords": [
+            "manufacturing",
+            "industrial",
+            "factory",
+            "equipment",
+            "machine",
+            "automation",
+            "engineering",
+            "assembly",
+            "production"
+        ],
+        "workloads": [
+            "Asset Tracking",
+            "Inventory",
+            "IoT Data",
+            "Operational Applications",
+            "Supply Chain"
+        ],
+        "fit_score": 21,
+        "reason": "Manufacturing companies often require real-time operational applications and IoT workloads."
+    },
+
+    "Energy and Utilities": {
+        "keywords": [
+            "energy",
+            "power",
+            "electric",
+            "utility",
+            "utilities",
+            "solar",
+            "grid",
+            "oil",
+            "gas",
+            "water"
+        ],
+        "workloads": [
+            "IoT",
+            "Asset Monitoring",
+            "Field Applications",
+            "Operational Systems",
+            "Real-Time Analytics"
+        ],
+        "fit_score": 21,
+        "reason": "Energy companies benefit from distributed operational applications and real-time data processing."
+    },
+
+    "Transportation and Logistics": {
+        "keywords": [
+            "transport",
+            "logistics",
+            "shipping",
+            "delivery",
+            "rail",
+            "airline",
+            "aviation",
+            "fleet",
+            "freight",
+            "supply"
+        ],
+        "workloads": [
+            "Tracking",
+            "Customer Profile",
+            "Fleet Management",
+            "Mobile Applications",
+            "Real-Time Operations"
+        ],
+        "fit_score": 23,
+        "reason": "Transportation workloads require distributed access, real-time updates, and high availability."
+    },
+
+    "Telecommunications": {
+        "keywords": [
+            "telecom",
+            "communications",
+            "wireless",
+            "network",
+            "mobile",
+            "carrier"
+        ],
+        "workloads": [
+            "Subscriber Profile",
+            "Network Applications",
+            "Customer 360",
+            "Usage Processing"
+        ],
+        "fit_score": 24,
+        "reason": "Telecommunications requires massive scale, low latency, and distributed operational systems."
+    },
+
+    "Government": {
+        "keywords": [
+            "government",
+            "federal",
+            "state",
+            "county",
+            "agency",
+            "defense",
+            "public"
+        ],
+        "workloads": [
+            "Citizen Services",
+            "Identity",
+            "Case Management",
+            "Operational Applications"
+        ],
+        "fit_score": 18,
+        "reason": "Government organizations operate large-scale citizen and mission applications."
+    }
+}

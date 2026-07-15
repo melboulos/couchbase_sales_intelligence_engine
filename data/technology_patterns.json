@@ -1,0 +1,60 @@
+[
+    {
+        "keywords": [
+            "ai",
+            "artificial intelligence",
+            "machine learning",
+            "analytics"
+        ],
+        "cloud_signal": "Cloud",
+        "database_signal": "Modern Data",
+        "ai_signal": "ai",
+        "score": 15
+    },
+    {
+        "keywords": [
+            "kubernetes",
+            "container",
+            "microservice"
+        ],
+        "cloud_signal": "Cloud Native",
+        "database_signal": "Modern Application",
+        "ai_signal": "Unknown",
+        "score": 15
+    },
+    {
+        "keywords": [
+            "software",
+            "saas",
+            "platform",
+            "technology"
+        ],
+        "cloud_signal": "Cloud",
+        "database_signal": "Application Database",
+        "ai_signal": "Unknown",
+        "score": 10
+    },
+    {
+        "keywords": [
+            "healthcare",
+            "health",
+            "medical"
+        ],
+        "cloud_signal": "Cloud",
+        "database_signal": "Patient Data",
+        "ai_signal": "AI Potential",
+        "score": 15
+    },
+    {
+        "keywords": [
+            "financial",
+            "fintech",
+            "payment",
+            "bank"
+        ],
+        "cloud_signal": "Cloud",
+        "database_signal": "Transactional Database",
+        "ai_signal": "Fraud AI Potential",
+        "score": 20
+    }
+]
