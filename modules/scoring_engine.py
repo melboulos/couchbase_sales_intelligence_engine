@@ -4,6 +4,8 @@ def calculate_coi(row):
 
     breakdown = {}
 
+
+
     # =====================================================
     # INPUT SIGNALS
     # =====================================================
@@ -15,12 +17,14 @@ def calculate_coi(row):
         )
     )
 
+
     financial_segment = str(
         row.get(
             "financial_segment",
             "Unknown"
         )
     )
+
 
     business_model = str(
         row.get(
@@ -29,12 +33,14 @@ def calculate_coi(row):
         )
     )
 
+
     company_signal = int(
         row.get(
             "company_signal_score",
             0
         )
     )
+
 
     technology_score = int(
         row.get(
@@ -43,12 +49,14 @@ def calculate_coi(row):
         )
     )
 
+
     company_size = str(
         row.get(
             "company_size",
             "Unknown"
         )
     )
+
 
     engineering = str(
         row.get(
@@ -57,6 +65,7 @@ def calculate_coi(row):
         )
     )
 
+
     revenue = str(
         row.get(
             "revenue_signal",
@@ -64,12 +73,14 @@ def calculate_coi(row):
         )
     )
 
+
     ai = str(
         row.get(
             "ai_initiatives",
             "Unknown"
         )
     )
+
 
 
     # =====================================================
@@ -93,7 +104,7 @@ def calculate_coi(row):
 
 
     # =====================================================
-    # INDUSTRY / SEGMENT FIT
+    # INDUSTRY FIT
     # =====================================================
 
     industry_points = 0
@@ -102,7 +113,6 @@ def calculate_coi(row):
     if industry == "Technology / SaaS":
 
         industry_points = 25
-
 
 
     elif industry == "Financial Services":
@@ -193,7 +203,7 @@ def calculate_coi(row):
 
 
     # =====================================================
-    # ENTERPRISE
+    # ENTERPRISE SIGNAL
     # =====================================================
 
     enterprise_points = 0
@@ -211,7 +221,7 @@ def calculate_coi(row):
 
 
     # =====================================================
-    # ENGINEERING
+    # ENGINEERING SIGNAL
     # =====================================================
 
     engineering_points = 0
@@ -229,7 +239,7 @@ def calculate_coi(row):
 
 
     # =====================================================
-    # REVENUE
+    # REVENUE SIGNAL
     # =====================================================
 
     revenue_points = 0
@@ -255,7 +265,7 @@ def calculate_coi(row):
 
     if ai != "Unknown":
 
-        ai_points = 5
+        ai_points = 10
 
 
     breakdown["ai_signal_points"] = ai_points
@@ -296,10 +306,16 @@ def calculate_coi(row):
         intelligence_fields += 1
 
 
+    if ai != "Unknown":
+
+        intelligence_fields += 1
+
+
 
     confidence_score = int(
-        (intelligence_fields / 5) * 100
+        (intelligence_fields / 6) * 100
     )
+
 
 
     if confidence_score >= 80:
@@ -335,6 +351,88 @@ def calculate_coi(row):
         score,
         100
     )
+
+
+
+    # =====================================================
+    # PRIORITY TIER
+    # =====================================================
+
+    if score >= 90:
+
+        priority_tier = "Tier 1 Strategic"
+
+
+    elif score >= 70:
+
+        priority_tier = "Tier 2 Strong Target"
+
+
+    elif score >= 50:
+
+        priority_tier = "Tier 3 Nurture"
+
+
+    else:
+
+        priority_tier = "Tier 4 Monitor"
+
+
+
+    breakdown["priority_tier"] = priority_tier
+
+
+
+    # =====================================================
+    # SALES MOTION
+    # =====================================================
+
+    if priority_tier == "Tier 1 Strategic":
+
+        sales_motion = (
+            "Enterprise outbound - "
+            "target architecture, engineering, "
+            "and data platform leaders"
+        )
+
+
+    elif industry == "Healthcare":
+
+        sales_motion = (
+            "Healthcare modernization - "
+            "focus on patient data, APIs, "
+            "and interoperability"
+        )
+
+
+    elif industry == "Financial Services":
+
+        sales_motion = (
+            "Financial modernization - "
+            "focus on transactions, "
+            "customer data, and risk workloads"
+        )
+
+
+    elif industry == "Technology / SaaS":
+
+        sales_motion = (
+            "Developer platform motion - "
+            "focus on scalability, APIs, "
+            "and cloud-native applications"
+        )
+
+
+    else:
+
+        sales_motion = (
+            "Enrich account before outreach"
+        )
+
+
+
+    breakdown["sales_motion"] = sales_motion
+
 
 
     return breakdown

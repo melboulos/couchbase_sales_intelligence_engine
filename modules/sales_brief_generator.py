@@ -54,6 +54,21 @@ def generate_sales_brief(row):
     )
 
 
+    cloud_signal = safe_value(
+        "cloud_signal"
+    )
+
+
+    database_signal = safe_value(
+        "database_signal"
+    )
+
+
+    ai_signal = safe_value(
+        "ai_signal"
+    )
+
+
 
     # =====================================================
     # LIST EXTRACTION
@@ -89,6 +104,37 @@ def generate_sales_brief(row):
     buyer_personas = safe_list(
         "buyer_personas"
     )
+
+
+    technology_signals = safe_list(
+        "technology_signals"
+    )
+
+
+
+    # =====================================================
+    # TECHNOLOGY SCORE
+    # =====================================================
+
+    technology_score = row.get(
+        "technology_score",
+        0
+    )
+
+
+    if hasattr(technology_score, "iloc"):
+        technology_score = technology_score.iloc[-1]
+
+
+    try:
+
+        technology_score = int(
+            technology_score
+        )
+
+    except:
+
+        technology_score = 0
 
 
 
@@ -184,7 +230,7 @@ def generate_sales_brief(row):
 
 
     # =====================================================
-    # WORKLOAD FORMAT
+    # FORMAT LISTS
     # =====================================================
 
     workload_text = (
@@ -196,7 +242,6 @@ def generate_sales_brief(row):
     )
 
 
-
     use_case_text = (
         ", ".join(
             use_cases[:5]
@@ -206,13 +251,21 @@ def generate_sales_brief(row):
     )
 
 
-
     persona_text = (
         ", ".join(
             buyer_personas[:5]
         )
         if buyer_personas
         else "Technology leadership"
+    )
+
+
+    technology_text = (
+        ", ".join(
+            technology_signals[:5]
+        )
+        if technology_signals
+        else "No technology signals identified"
     )
 
 
@@ -261,7 +314,7 @@ def generate_sales_brief(row):
 
 
     # =====================================================
-    # FINAL SALES BRIEF
+    # SALES BRIEF
     # =====================================================
 
     sales_brief = f"""
@@ -304,6 +357,27 @@ Likely Existing Databases:
 
 
 ==================================================
+TECHNOLOGY INTELLIGENCE
+==================================================
+
+Technology Signals:
+{technology_text}
+
+Technology Score:
+{technology_score}
+
+Cloud Signal:
+{cloud_signal}
+
+Database Signal:
+{database_signal}
+
+AI Signal:
+{ai_signal}
+
+
+
+==================================================
 POTENTIAL WORKLOADS
 ==================================================
 
@@ -327,11 +401,13 @@ Couchbase value hypothesis:
 - Enable real-time application experiences
 
 
+
 ==================================================
 TARGET BUYERS
 ==================================================
 
 {persona_text}
+
 
 
 ==================================================
@@ -386,6 +462,20 @@ DISCOVERY QUESTIONS
         )
 
 
+    if technology_signals:
+
+        why_ranked.append(
+            f"Technology signals: {', '.join(technology_signals[:3])}"
+        )
+
+
+    if ai_signal != "Unknown":
+
+        why_ranked.append(
+            f"AI opportunity: {ai_signal}"
+        )
+
+
     if confidence == "High":
 
         why_ranked.append(
@@ -403,10 +493,13 @@ DISCOVERY QUESTIONS
 
     if (
         score >= 80
-        and confidence in [
-            "High",
-            "Medium"
-        ]
+        and (
+            technology_score >= 15
+            or confidence in [
+                "High",
+                "Medium"
+            ]
+        )
     ):
 
         ai_enrichment_recommended = True
@@ -414,7 +507,7 @@ DISCOVERY QUESTIONS
 
 
     # =====================================================
-    # STRUCTURED ACCOUNT INTELLIGENCE
+    # RETURN
     # =====================================================
 
     return {
@@ -439,6 +532,9 @@ DISCOVERY QUESTIONS
 
         "buyer_persona_summary":
             persona_text,
+
+        "technology_summary":
+            technology_text,
 
         "sales_brief":
             sales_brief

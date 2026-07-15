@@ -1,360 +1,237 @@
-# modules/company_intelligence.py
-
 import json
+import os
 
 
 PATTERN_FILE = "data/company_patterns.json"
 
 
-with open(PATTERN_FILE, "r") as f:
-    COMPANY_PATTERNS = json.load(f)
+
+# =====================================================
+# LOAD PATTERNS
+# =====================================================
+
+def load_patterns():
+
+    if not os.path.exists(PATTERN_FILE):
+        return {}
+
+    with open(
+        PATTERN_FILE,
+        "r"
+    ) as file:
+        return json.load(file)
 
 
+
+PATTERNS = load_patterns()
+
+
+KNOWN_COMPANIES = PATTERNS.get(
+    "known_companies",
+    {}
+)
+
+
+BUSINESS_PATTERNS = PATTERNS.get(
+    "business_patterns",
+    {}
+)
+
+
+
+# =====================================================
+# COMPANY INTELLIGENCE
+# =====================================================
 
 def analyze_company(row):
 
 
-    name = str(
+    account_name = str(
         row.get(
             "normalized_account_name",
-            row.get("Account Name", "")
+            row.get(
+                "Account Name",
+                ""
+            )
         )
-    ).lower()
+    ).lower().strip()
+
+
+
+    result = {
+
+        "business_model": "Unknown",
+
+        "industry": "Unknown",
+
+        "financial_segment": "Unknown",
+
+        "workloads": [],
+
+        "company_signal_score": 0,
+
+        "company_signal_reason": ""
+
+    }
 
 
 
     # =====================================================
-    # IMPORTANT
-    # Preserve industry_classifier.py result
+    # KNOWN COMPANY OVERRIDE
+    #
+    # Pass 1:
+    # Exact company match
+    #
+    # Prevents:
+    # Cleo -> McLeod
+    # AI -> AIM
+    # Pay -> unrelated companies
     # =====================================================
 
-    industry = str(
-        row.get(
-            "industry",
-            "Unknown"
-        )
-    )
+    for company, data in KNOWN_COMPANIES.items():
+
+        company_key = company.lower().strip()
 
 
-
-    business_model = "Unknown"
-
-    workloads = []
-
-    reason = ""
-
-    score = 0
+        if account_name == company_key:
 
 
-    database_pressure = "Unknown"
-
-    modernization_signal = "Unknown"
-
-    couchbase_use_cases = []
-
-    buyer_personas = []
-
-
-
-    # =====================================================
-    # Known Company Match
-    # Only classify industry if still unknown
-    # =====================================================
-
-    for company, profile in COMPANY_PATTERNS.get(
-        "known_companies",
-        {}
-    ).items():
-
-
-        if company in name:
-
-
-            if industry == "Unknown":
-
-                industry = profile.get(
-                    "industry",
-                    "Unknown"
-                )
-
-
-            business_model = profile.get(
+            result["business_model"] = data.get(
                 "business_model",
                 "Unknown"
             )
 
 
-            workloads = profile.get(
+            result["industry"] = data.get(
+                "industry",
+                "Unknown"
+            )
+
+
+            result["workloads"] = data.get(
                 "workloads",
                 []
             )
 
 
-            reason = profile.get(
-                "reason",
-                ""
-            )
-
-
-            score += profile.get(
+            result["company_signal_score"] = data.get(
                 "score_boost",
                 0
             )
 
 
-            break
+            result["company_signal_reason"] = data.get(
+                "reason",
+                ""
+            )
+
+
+            return result
 
 
 
     # =====================================================
-    # Business Pattern Match
-    # Only classify unknown accounts
+    # KNOWN COMPANY OVERRIDE
+    #
+    # Pass 2:
+    # Safe partial matching
+    #
+    # Only allow longer names
     # =====================================================
 
-    if industry == "Unknown":
+    for company, data in KNOWN_COMPANIES.items():
+
+        company_key = company.lower().strip()
 
 
-        for pattern, profile in COMPANY_PATTERNS.get(
-            "business_patterns",
-            {}
-        ).items():
+        if (
+            len(company_key) >= 6
+            and company_key in account_name
+        ):
 
 
-            keywords = profile.get(
-                "keywords",
+            result["business_model"] = data.get(
+                "business_model",
+                "Unknown"
+            )
+
+
+            result["industry"] = data.get(
+                "industry",
+                "Unknown"
+            )
+
+
+            result["workloads"] = data.get(
+                "workloads",
                 []
             )
 
 
+            result["company_signal_score"] = data.get(
+                "score_boost",
+                0
+            )
 
-            if any(
-                keyword in name
-                for keyword in keywords
-            ):
+
+            result["company_signal_reason"] = data.get(
+                "reason",
+                ""
+            )
 
 
-                industry = profile.get(
+            return result
+
+
+
+    # =====================================================
+    # BUSINESS PATTERN MATCH
+    # =====================================================
+
+    for model, data in BUSINESS_PATTERNS.items():
+
+
+        for keyword in data.get(
+            "keywords",
+            []
+        ):
+
+
+            keyword = keyword.lower().strip()
+
+
+            if keyword in account_name:
+
+
+                result["business_model"] = model
+
+
+                result["industry"] = data.get(
                     "industry",
                     "Unknown"
                 )
 
 
-                business_model = pattern
-
-
-                workloads = profile.get(
+                result["workloads"] = data.get(
                     "workloads",
                     []
                 )
 
 
-                score += profile.get(
+                result["company_signal_score"] = data.get(
                     "score_boost",
                     0
                 )
 
 
-                break
+                result["company_signal_reason"] = (
+                    "Matched business pattern: "
+                    + model
+                )
 
 
+                return result
 
-    # =====================================================
-    # Couchbase Workload Intelligence
-    # =====================================================
 
 
-    if industry == "Financial Services":
-
-
-        database_pressure = (
-            "High transactional data volume"
-        )
-
-
-        modernization_signal = (
-            "Legacy database modernization"
-        )
-
-
-        couchbase_use_cases = [
-
-            "Customer 360",
-            "Transaction processing",
-            "Fraud detection",
-            "Real-time account services"
-
-        ]
-
-
-        buyer_personas = [
-
-            "VP Engineering",
-            "Database Architect",
-            "Digital Banking Technology"
-
-        ]
-
-
-
-    elif industry == "Healthcare":
-
-
-        database_pressure = (
-            "Patient data complexity"
-        )
-
-
-        modernization_signal = (
-            "Healthcare application modernization"
-        )
-
-
-        couchbase_use_cases = [
-
-            "Patient profiles",
-            "Healthcare applications",
-            "Provider data"
-
-        ]
-
-
-        buyer_personas = [
-
-            "Healthcare Technology Leader",
-            "Enterprise Architect",
-            "Data Platform Team"
-
-        ]
-
-
-
-    elif industry == "Technology / SaaS":
-
-
-        database_pressure = (
-            "Application scalability"
-        )
-
-
-        modernization_signal = (
-            "Cloud-native modernization"
-        )
-
-
-        couchbase_use_cases = [
-
-            "Application database",
-            "Customer profiles",
-            "Real-time applications"
-
-        ]
-
-
-        buyer_personas = [
-
-            "CTO",
-            "VP Engineering",
-            "Software Architecture"
-
-        ]
-
-
-
-    elif industry == "Retail":
-
-
-        database_pressure = (
-            "Customer experience and personalization"
-        )
-
-
-        modernization_signal = (
-            "Digital commerce modernization"
-        )
-
-
-        couchbase_use_cases = [
-
-            "Customer 360",
-            "Product catalog",
-            "Personalization"
-
-        ]
-
-
-        buyer_personas = [
-
-            "Digital Commerce Leader",
-            "VP Engineering",
-            "Enterprise Architect"
-
-        ]
-
-
-
-    elif industry == "Transportation and Logistics":
-
-
-        database_pressure = (
-            "Operational data scale"
-        )
-
-
-        modernization_signal = (
-            "Real-time logistics modernization"
-        )
-
-
-        couchbase_use_cases = [
-
-            "Fleet management",
-            "Operational applications",
-            "Real-time tracking"
-
-        ]
-
-
-        buyer_personas = [
-
-            "VP Engineering",
-            "Enterprise Architect",
-            "Operations Technology"
-
-        ]
-
-
-
-    # =====================================================
-    # Return
-    # =====================================================
-
-    return {
-
-
-        "industry": industry,
-
-
-        "business_model": business_model,
-
-
-        "workloads": workloads,
-
-
-        "company_reason": reason,
-
-
-        "database_pressure": database_pressure,
-
-
-        "modernization_signal": modernization_signal,
-
-
-        "couchbase_use_cases": couchbase_use_cases,
-
-
-        "buyer_personas": buyer_personas,
-
-
-        "company_signal_score": score
-
-    }
+    return result

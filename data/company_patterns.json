@@ -1,42 +1,6 @@
 {
     "known_companies": {
-       
-       "paytronix": {
-            "business_model": "Payments",
-            "industry": "Financial Services",
-            "workloads": [
-                "Restaurant Payments",
-                "Customer Loyalty",
-                "Transaction Processing",
-                "Customer Profiles"
-            ],
-            "score_boost": 15,
-            "reason": "Restaurant payments platforms require scalable operational databases for transactions and real-time customer experiences."
-        },
 
-        "aim specialty health": {
-            "business_model": "Healthcare Technology",
-            "industry": "Healthcare",
-            "workloads": [
-                "Member Profiles",
-                "Healthcare Applications",
-                "Clinical Data"
-            ],
-            "score_boost": 15,
-            "reason": "Healthcare platforms require scalable operational databases for member and clinical applications."
-        },
-
-        "kaia health software": {
-            "business_model": "Healthcare SaaS",
-            "industry": "Healthcare",
-            "workloads": [
-                "Patient Engagement",
-                "Digital Health Applications",
-                "Healthcare Data"
-            ],
-            "score_boost": 15,
-            "reason": "Digital health SaaS applications require scalable real-time data platforms."
-        },
         "netspend": {
             "business_model": "FinTech",
             "industry": "Financial Services",
@@ -48,6 +12,32 @@
             ],
             "score_boost": 25,
             "reason": "Payments platforms require highly available, low latency operational databases for customer accounts and transactions."
+        },
+
+        "paytronix": {
+            "business_model": "Payments",
+            "industry": "Financial Services",
+            "financial_segment": "Payments",
+            "workloads": [
+                "Restaurant Payments",
+                "Customer Loyalty",
+                "Transaction Processing",
+                "Customer Profiles"
+            ],
+            "score_boost": 15,
+            "reason": "Restaurant payments platforms require scalable operational databases for transactions and real-time customer experiences."
+        },
+
+        "cleo": {
+            "business_model": "Integration Platform",
+            "industry": "Technology / SaaS",
+            "workloads": [
+                "API Platform",
+                "Integration Services",
+                "Operational Applications"
+            ],
+            "score_boost": 20,
+            "reason": "Integration platforms commonly require high throughput operational data services."
         },
 
         "redox": {
@@ -63,18 +53,6 @@
             "reason": "Healthcare integration platforms require scalable operational data management and API-driven architectures."
         },
 
-        "peopleadmin": {
-            "business_model": "HR SaaS",
-            "industry": "Technology / SaaS",
-            "workloads": [
-                "Employee Profiles",
-                "Workflow Applications",
-                "Multi Tenant SaaS"
-            ],
-            "score_boost": 20,
-            "reason": "HR SaaS platforms commonly operate multi-tenant applications requiring flexible operational databases."
-        },
-
         "staywell": {
             "business_model": "Healthcare Technology",
             "industry": "Healthcare",
@@ -87,16 +65,55 @@
             "reason": "Healthcare engagement platforms require scalable applications managing patient and member data."
         },
 
-        "cleo": {
-            "business_model": "Integration Platform",
-            "industry": "Technology / SaaS",
+        "mcleod health": {
+            "business_model": "Healthcare Provider",
+            "industry": "Healthcare",
             "workloads": [
-                "API Platform",
-                "Integration Services",
-                "Operational Applications"
+                "Patient Applications",
+                "Clinical Data",
+                "Healthcare APIs",
+                "Patient Profiles"
             ],
             "score_boost": 20,
-            "reason": "Integration platforms commonly require high throughput operational data services."
+            "reason": "Healthcare providers require scalable operational platforms for patient data, clinical applications, and interoperability."
+        },
+
+        "aim specialty health": {
+            "business_model": "Healthcare Technology",
+            "industry": "Healthcare",
+            "workloads": [
+                "Member Profiles",
+                "Healthcare Applications",
+                "Clinical Data",
+                "Healthcare Analytics"
+            ],
+            "score_boost": 20,
+            "reason": "Healthcare technology platforms require scalable data platforms for member applications, analytics, and clinical workflows."
+        },
+
+        "kaia health software": {
+            "business_model": "Healthcare SaaS",
+            "industry": "Healthcare",
+            "workloads": [
+                "Patient Engagement",
+                "Digital Health Applications",
+                "Healthcare Data",
+                "Remote Care Applications"
+            ],
+            "score_boost": 20,
+            "reason": "Digital health SaaS applications require scalable real-time data platforms for patient engagement and healthcare applications."
+        },
+
+        "peopleadmin": {
+            "business_model": "HR SaaS",
+            "industry": "Technology / SaaS",
+            "workloads": [
+                "Employee Profiles",
+                "Workflow Applications",
+                "Multi Tenant SaaS"
+            ],
+            "score_boost": 20,
+            "reason": "HR SaaS platforms commonly operate multi-tenant applications requiring flexible operational databases."
         },
 
         "openkey": {
@@ -159,6 +176,7 @@
         "SaaS": {
             "keywords": [
                 "software",
+                "saas",
                 "platform",
                 "systems",
                 "solutions",

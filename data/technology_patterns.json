@@ -1,60 +1,119 @@
 [
     {
+        "name": "AI / Analytics Platform",
         "keywords": [
             "ai",
             "artificial intelligence",
             "machine learning",
-            "analytics"
+            "analytics",
+            "intelligence"
         ],
         "cloud_signal": "Cloud",
         "database_signal": "Modern Data",
-        "ai_signal": "ai",
+        "ai_signal": "AI Opportunity",
         "score": 15
     },
+
     {
+        "name": "Cloud Native Application",
         "keywords": [
             "kubernetes",
             "container",
-            "microservice"
+            "microservice",
+            "cloud native"
         ],
         "cloud_signal": "Cloud Native",
         "database_signal": "Modern Application",
         "ai_signal": "Unknown",
         "score": 15
     },
+
     {
+        "name": "SaaS Application",
         "keywords": [
             "software",
             "saas",
             "platform",
-            "technology"
+            "technology",
+            "application"
         ],
         "cloud_signal": "Cloud",
         "database_signal": "Application Database",
         "ai_signal": "Unknown",
         "score": 10
     },
+
     {
+        "name": "Healthcare Data Platform",
         "keywords": [
             "healthcare",
             "health",
-            "medical"
+            "medical",
+            "patient",
+            "clinical"
         ],
         "cloud_signal": "Cloud",
         "database_signal": "Patient Data",
-        "ai_signal": "AI Potential",
+        "ai_signal": "Healthcare AI Potential",
         "score": 15
     },
+
     {
+        "name": "Financial Transaction Platform",
         "keywords": [
             "financial",
             "fintech",
             "payment",
-            "bank"
+            "payments",
+            "bank",
+            "transaction"
         ],
         "cloud_signal": "Cloud",
         "database_signal": "Transactional Database",
         "ai_signal": "Fraud AI Potential",
         "score": 20
+    },
+
+    {
+        "name": "Customer Experience Platform",
+        "keywords": [
+            "customer",
+            "loyalty",
+            "profile",
+            "engagement",
+            "personalization"
+        ],
+        "cloud_signal": "Cloud",
+        "database_signal": "Customer 360",
+        "ai_signal": "Personalization AI Potential",
+        "score": 15
+    },
+
+    {
+        "name": "API Integration Platform",
+        "keywords": [
+            "api",
+            "integration",
+            "exchange",
+            "connector"
+        ],
+        "cloud_signal": "Cloud",
+        "database_signal": "Operational API Data",
+        "ai_signal": "Unknown",
+        "score": 15
+    },
+
+    {
+        "name": "Real-Time Application",
+        "keywords": [
+            "real time",
+            "mobile",
+            "digital",
+            "online"
+        ],
+        "cloud_signal": "Cloud",
+        "database_signal": "Low Latency Operational Data",
+        "ai_signal": "Unknown",
+        "score": 10
     }
 ]

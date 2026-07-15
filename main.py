@@ -13,9 +13,11 @@ from pipeline.technology_pipeline import enrich_technology
 from pipeline.account_enrichment_pipeline import enrich_accounts
 from pipeline.account_pipeline import enrich_account_intelligence
 from pipeline.scoring_pipeline import score_accounts
-
+from pipeline.llm_validation_pipeline import validate_accounts
+from pipeline.llm_validation_pipeline import validate_accounts
 from modules.llm_candidate_selector import select_llm_candidate
 from modules.sales_brief_generator import generate_sales_brief
+from modules.opportunity_explainer import generate_opportunity_explanation
 
 
 
@@ -160,6 +162,55 @@ accounts = score_accounts(
 )
 
 
+# =====================================================
+# LLM VALIDATION
+# ONLY TIER 1 STRATEGIC ACCOUNTS
+# =====================================================
+
+print("\nRunning LLM validation...")
+
+accounts = validate_accounts(
+    accounts
+)
+# =====================================================
+# LLM VALIDATION
+# =====================================================
+
+print("\nRunning LLM validation...")
+
+accounts = validate_accounts(
+    accounts
+)
+
+
+
+# =====================================================
+# OPPORTUNITY EXPLANATION
+# =====================================================
+
+print("\nGenerating opportunity explanations...")
+
+
+opportunity_results = accounts.apply(
+    generate_opportunity_explanation,
+    axis=1
+)
+
+
+opportunity_results = pd.DataFrame(
+    opportunity_results.tolist()
+)
+
+
+accounts = pd.concat(
+    [
+        accounts.reset_index(drop=True),
+        opportunity_results.reset_index(drop=True)
+    ],
+    axis=1
+)
+
+
 
 # =====================================================
 # LLM CANDIDATES
@@ -188,7 +239,15 @@ accounts = pd.concat(
 )
 
 
+# =====================================================
+# LLM VALIDATION
+# =====================================================
 
+print("\nRunning LLM validation...")
+
+accounts = validate_accounts(
+    accounts
+)
 # =====================================================
 # SALES BRIEFS
 # =====================================================

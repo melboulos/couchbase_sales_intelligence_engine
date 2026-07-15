@@ -64,7 +64,6 @@ def classify_industries(accounts):
 def enrich_company_intelligence(accounts):
 
 
-
     company_results = accounts.apply(
         analyze_company,
         axis=1
@@ -76,15 +75,33 @@ def enrich_company_intelligence(accounts):
     )
 
 
-    company_industry = company_results["industry"]
+    # Preserve company intelligence values
+
+    for column in company_results.columns:
+
+        if column == "industry":
+
+            continue
 
 
-    company_results = company_results.drop(
-        columns=["industry"],
-        errors="ignore"
+        accounts[column] = company_results[column]
+
+
+
+    # =====================================================
+    # COMPANY INDUSTRY OVERRIDE
+    # =====================================================
+
+    accounts["industry"] = (
+        company_results["industry"]
+        .where(
+            company_results["industry"] != "Unknown",
+            accounts["industry"]
+        )
     )
 
 
+    return accounts
     accounts = pd.concat(
         [
             accounts.reset_index(drop=True),

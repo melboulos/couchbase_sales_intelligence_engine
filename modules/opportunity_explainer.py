@@ -1,161 +1,217 @@
-def generate_explanation(row):
-
-    """
-    Generates AE-facing sales intelligence.
-
-    Converts scoring output into:
-    - Why this account
-    - Likely workloads
-    - Personas
-    - Discovery questions
-    - Couchbase story
-    """
+def generate_opportunity_explanation(row):
 
 
-    business_model = str(
-        row.get(
-            "business_model",
-            "Unknown"
+    def safe_value(field, default="Unknown"):
+
+        value = row.get(
+            field,
+            default
         )
-    )
 
-    industry = str(
-        row.get(
-            "industry",
-            "Unknown"
-        )
+        if hasattr(value, "iloc"):
+            value = value.iloc[-1]
+
+        if value is None or str(value).strip() == "":
+            return default
+
+        return str(value)
+
+
+
+    account = safe_value(
+        "Account Name"
     )
 
 
-    workloads = row.get(
-        "additional_workloads",
+    industry = safe_value(
+        "industry"
+    )
+
+
+    business_model = safe_value(
+        "business_model"
+    )
+
+
+    database_signal = safe_value(
+        "database_signal"
+    )
+
+
+    technology_signals = row.get(
+        "technology_signals",
         []
     )
 
 
-    if not isinstance(workloads, list):
+    if not isinstance(
+        technology_signals,
+        list
+    ):
+
+        technology_signals = []
+
+
+
+    workloads = row.get(
+        "workloads",
+        []
+    )
+
+
+    if not isinstance(
+        workloads,
+        list
+    ):
 
         workloads = []
 
 
 
-    coi = row.get(
-        "overall_coi",
-        0
-    )
+    # =====================================================
+    # INDUSTRY MESSAGING
+    # =====================================================
 
 
-    #
-    # Why this account
-    #
-    if business_model != "Unknown":
+    if industry == "Financial Services":
 
-        why = (
-            f"{business_model} organization in the "
-            f"{industry} space with potential "
-            f"Couchbase operational database workloads."
+        industry_message = (
+            "Financial services organizations often require "
+            "high availability, low latency transactions, "
+            "customer data platforms, and real-time analytics."
         )
 
-    elif industry != "Unknown":
 
-        why = (
-            f"{industry} organization with "
-            f"potential high-performance operational "
-            f"application requirements."
+    elif industry == "Healthcare":
+
+        industry_message = (
+            "Healthcare organizations often manage "
+            "complex patient applications, interoperability "
+            "requirements, and rapidly growing data workloads."
         )
+
+
+    elif industry == "Technology / SaaS":
+
+        industry_message = (
+            "Software companies typically require "
+            "scalable application databases, flexible schemas, "
+            "and developer-friendly operational platforms."
+        )
+
 
     else:
 
-        why = (
-            "Limited intelligence available. "
-            "Additional enrichment recommended."
+        industry_message = (
+            "The account shows potential operational "
+            "application and modernization opportunities."
         )
 
 
 
-    #
-    # Workloads
-    #
+    # =====================================================
+    # TECHNOLOGY SIGNALS
+    # =====================================================
+
+    if technology_signals:
+
+        technology_message = (
+            "Technology indicators include: "
+            +
+            ", ".join(
+                technology_signals[:5]
+            )
+            +
+            "."
+        )
+
+
+    else:
+
+        technology_message = (
+            "Additional technical discovery is recommended "
+            "to identify database and modernization opportunities."
+        )
+
+
+
+    # =====================================================
+    # WORKLOAD SIGNALS
+    # =====================================================
+
     if workloads:
 
-        workload_text = ", ".join(
-            workloads
+        workload_message = (
+            "Potential workloads: "
+            +
+            ", ".join(
+                workloads[:5]
+            )
+            +
+            "."
         )
+
 
     else:
 
-        workload_text = (
-            "Customer profiles, transactional "
-            "applications, APIs, operational workloads"
+        workload_message = (
+            "Likely workloads include operational applications, "
+            "customer data, and real-time services."
         )
 
 
 
-    #
-    # Recommended personas
-    #
-    personas = [
+    # =====================================================
+    # DATABASE MESSAGE
+    # =====================================================
 
-        "VP Engineering",
-
-        "Director of Applications",
-
-        "Enterprise Architect",
-
-        "Platform Engineering"
-
-    ]
-
-
-    #
-    # Discovery questions
-    #
-    questions = [
-
-        "How are you managing operational application data today?",
-
-        "Are you running multiple databases for operational workloads, caching, or search?",
-
-        "What AI initiatives are you exploring that require access to operational data?"
-
-    ]
-
-
-
-    #
-    # Couchbase value proposition
-    #
-    couchbase_story = (
-
-        "Couchbase Capella can help consolidate "
-        "operational database workloads, caching, "
-        "and AI-ready data services while improving "
-        "application performance and reducing "
-        "operational complexity."
-
+    database_message = (
+        f"Current database pressure signal: "
+        f"{database_signal}."
     )
 
 
 
-    #
-    # Return enrichment
-    #
+    # =====================================================
+    # FINAL EXPLANATION
+    # =====================================================
+
+
+    explanation = f"""
+
+{account} represents a potential Couchbase opportunity.
+
+Business profile:
+{business_model}
+
+Industry fit:
+{industry}
+
+Why Couchbase may fit:
+
+- {industry_message}
+
+- {technology_message}
+
+- {workload_message}
+
+- {database_message}
+
+Potential Couchbase value:
+
+- Modernize operational applications
+- Support high-performance real-time workloads
+- Reduce database complexity
+- Enable scalable application development
+- Provide a foundation for AI-enabled experiences
+
+""".strip()
+
+
+
     return {
 
-        "opportunity_score": coi,
-
-        "why_this_account": why,
-
-        "likely_workloads": workload_text,
-
-        "recommended_personas": ", ".join(
-            personas
-        ),
-
-        "discovery_questions": " | ".join(
-            questions
-        ),
-
-        "couchbase_story": couchbase_story
+        "opportunity_explanation":
+            explanation
 
     }
