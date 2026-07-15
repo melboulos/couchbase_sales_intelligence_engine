@@ -1,6 +1,42 @@
 {
     "known_companies": {
+       
+       "paytronix": {
+            "business_model": "Payments",
+            "industry": "Financial Services",
+            "workloads": [
+                "Restaurant Payments",
+                "Customer Loyalty",
+                "Transaction Processing",
+                "Customer Profiles"
+            ],
+            "score_boost": 15,
+            "reason": "Restaurant payments platforms require scalable operational databases for transactions and real-time customer experiences."
+        },
 
+        "aim specialty health": {
+            "business_model": "Healthcare Technology",
+            "industry": "Healthcare",
+            "workloads": [
+                "Member Profiles",
+                "Healthcare Applications",
+                "Clinical Data"
+            ],
+            "score_boost": 15,
+            "reason": "Healthcare platforms require scalable operational databases for member and clinical applications."
+        },
+
+        "kaia health software": {
+            "business_model": "Healthcare SaaS",
+            "industry": "Healthcare",
+            "workloads": [
+                "Patient Engagement",
+                "Digital Health Applications",
+                "Healthcare Data"
+            ],
+            "score_boost": 15,
+            "reason": "Digital health SaaS applications require scalable real-time data platforms."
+        },
         "netspend": {
             "business_model": "FinTech",
             "industry": "Financial Services",
