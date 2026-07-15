@@ -14,7 +14,6 @@ from pipeline.account_enrichment_pipeline import enrich_accounts
 from pipeline.account_pipeline import enrich_account_intelligence
 from pipeline.scoring_pipeline import score_accounts
 from pipeline.llm_validation_pipeline import validate_accounts
-from pipeline.llm_validation_pipeline import validate_accounts
 from modules.llm_candidate_selector import select_llm_candidate
 from modules.sales_brief_generator import generate_sales_brief
 from modules.opportunity_explainer import generate_opportunity_explanation
@@ -162,26 +161,6 @@ accounts = score_accounts(
 )
 
 
-# =====================================================
-# LLM VALIDATION
-# ONLY TIER 1 STRATEGIC ACCOUNTS
-# =====================================================
-
-print("\nRunning LLM validation...")
-
-accounts = validate_accounts(
-    accounts
-)
-# =====================================================
-# LLM VALIDATION
-# =====================================================
-
-print("\nRunning LLM validation...")
-
-accounts = validate_accounts(
-    accounts
-)
-
 
 
 # =====================================================
@@ -211,7 +190,6 @@ accounts = pd.concat(
 )
 
 
-
 # =====================================================
 # LLM CANDIDATES
 # =====================================================
@@ -219,7 +197,26 @@ accounts = pd.concat(
 print("\nSelecting LLM enrichment candidates...")
 
 
-llm_results = accounts.apply(
+# Safety limit during LLM testing
+LLM_TEST_LIMIT = 10
+
+
+llm_candidates = (
+    accounts
+    .sort_values(
+        "overall_coi",
+        ascending=False
+    )
+    .head(LLM_TEST_LIMIT)
+)
+
+
+print(
+    f"Selected {len(llm_candidates)} accounts for LLM validation"
+)
+
+
+llm_results = llm_candidates.apply(
     select_llm_candidate,
     axis=1
 )
@@ -230,9 +227,9 @@ llm_results = pd.DataFrame(
 )
 
 
-accounts = pd.concat(
+llm_candidates = pd.concat(
     [
-        accounts.reset_index(drop=True),
+        llm_candidates.reset_index(drop=True),
         llm_results.reset_index(drop=True)
     ],
     axis=1
@@ -246,7 +243,7 @@ accounts = pd.concat(
 print("\nRunning LLM validation...")
 
 accounts = validate_accounts(
-    accounts
+    llm_candidates
 )
 # =====================================================
 # SALES BRIEFS

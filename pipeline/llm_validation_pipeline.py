@@ -46,7 +46,6 @@ def generate_token_summary(
         return pd.DataFrame()
 
 
-
     input_tokens = int(
         llm_results[
             "llm_input_tokens"
@@ -191,31 +190,26 @@ def validate_accounts(
     accounts
 ):
 
-
     print(
         "\nStarting LLM validation..."
     )
 
 
-    tier1_accounts = accounts[
-        accounts[
-            "priority_tier"
-        ]
-        ==
-        "Tier 1 Strategic"
-    ].copy()
+    # =================================================
+    # ACCOUNTS ARE PRESELECTED BY MAIN PIPELINE
+    # =================================================
 
+    llm_accounts = accounts.copy()
 
 
     total = len(
-        tier1_accounts
+        llm_accounts
     )
 
 
     print(
         f"LLM candidates: {total}"
     )
-
 
 
     if total == 0:
@@ -245,7 +239,6 @@ def validate_accounts(
         llm_results = pd.read_excel(
             LLM_RESULTS_FILE
         )
-
 
 
     else:
@@ -278,7 +271,7 @@ def validate_accounts(
             futures = []
 
 
-            for _, row in tier1_accounts.iterrows():
+            for _, row in llm_accounts.iterrows():
 
                 futures.append(
                     executor.submit(
@@ -361,7 +354,7 @@ def validate_accounts(
 
 
         # =====================================================
-        # SAVE CHECKPOINT BEFORE ANY MERGE
+        # SAVE CHECKPOINT
         # =====================================================
 
         llm_results.to_excel(
@@ -418,9 +411,9 @@ def validate_accounts(
     # CLEAN BEFORE MERGE
     # =====================================================
 
-    tier1_accounts = tier1_accounts.loc[
+    llm_accounts = llm_accounts.loc[
         :,
-        ~tier1_accounts.columns.duplicated()
+        ~llm_accounts.columns.duplicated()
     ]
 
 
@@ -435,59 +428,20 @@ def validate_accounts(
     # MERGE LLM RESULTS
     # =====================================================
 
-    tier1_accounts = pd.concat(
+    llm_accounts = pd.concat(
         [
-            tier1_accounts.reset_index(drop=True),
+            llm_accounts.reset_index(drop=True),
             llm_results.reset_index(drop=True)
         ],
         axis=1
     )
 
 
-    tier1_accounts = tier1_accounts.loc[
+    llm_accounts = llm_accounts.loc[
         :,
-        ~tier1_accounts.columns.duplicated()
+        ~llm_accounts.columns.duplicated()
     ]
 
 
 
-    # =====================================================
-    # NON TIER 1
-    # =====================================================
-
-    non_tier1 = accounts[
-        accounts[
-            "priority_tier"
-        ]
-        !=
-        "Tier 1 Strategic"
-    ].copy()
-
-
-    non_tier1 = non_tier1.loc[
-        :,
-        ~non_tier1.columns.duplicated()
-    ]
-
-
-
-    # =====================================================
-    # FINAL MERGE
-    # =====================================================
-
-    final = pd.concat(
-        [
-            tier1_accounts,
-            non_tier1
-        ],
-        ignore_index=True
-    )
-
-
-    final = final.loc[
-        :,
-        ~final.columns.duplicated()
-    ]
-
-
-    return final
+    return llm_accounts
