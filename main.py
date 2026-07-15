@@ -242,7 +242,7 @@ llm_candidates = pd.concat(
 
 print("\nRunning LLM validation...")
 
-accounts = validate_accounts(
+llm_accounts = validate_accounts(
     llm_candidates
 )
 # =====================================================
@@ -251,8 +251,7 @@ accounts = validate_accounts(
 
 print("\nGenerating sales account briefs...")
 
-
-brief_results = accounts.apply(
+brief_results = llm_accounts.apply(
     generate_sales_brief,
     axis=1
 )
@@ -293,7 +292,14 @@ accounts.to_excel(
     index=False
 )
 
+# =====================================================
+# SAVE LLM VALIDATED OUTPUT
+# =====================================================
 
+llm_accounts.to_excel(
+    "output/LLM_Validated_Accounts.xlsx",
+    index=False
+)
 
 print("\n-------------------------------------------")
 print("Completed")
