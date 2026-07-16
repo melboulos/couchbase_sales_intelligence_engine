@@ -37,182 +37,154 @@ def validate_account(row):
         )
 
 
-        if "llm_score" not in result:
+        # =====================================================
+        # SALES INTELLIGENCE CONTRACT VALIDATION
+        # =====================================================
+
+        required_fields = [
+
+            "llm_opportunity_score",
+
+            "coi_assessment",
+
+            "opportunity_summary",
+
+            "couchbase_trigger",
+
+            "missing_evidence",
+
+            "seller_action",
+
+            "discovery_questions"
+
+        ]
+
+
+        missing_fields = [
+
+            field
+
+            for field in required_fields
+
+            if field not in result
+
+        ]
+
+
+        if missing_fields:
 
             raise ValueError(
-                "LLM returned JSON but missing llm_score"
+                f"LLM missing required sales intelligence fields: {missing_fields}"
             )
 
 
         # =====================================================
-        # LLM SCORE VALIDATION GUARDRAIL
+        # RETURN SALES INTELLIGENCE
         # =====================================================
-
-        original_llm_score = int(
-            result.get(
-                "llm_score",
-                0
-            )
-        )
-
-
-        database_signal = str(
-            row.get(
-                "database_signal",
-                ""
-            )
-        )
-
-
-        llm_score = original_llm_score
-
-
-        if (
-            llm_score > 69
-            and
-            database_signal in [
-                "Unknown",
-                "Application Database"
-            ]
-        ):
-
-            llm_score = 69
-
-
-
-        coi = int(
-            row.get(
-                "overall_coi",
-                0
-            )
-        )
-
 
         return {
 
+
             "llm_run_id":
+
                 LLM_RUN_ID,
 
 
-            "derived_coi":
-                coi,
-
-
-            "llm_original_score":
-                original_llm_score,
-
-
-            "llm_score":
-                llm_score,
-
-
-            "llm_score_difference":
-                llm_score - coi,
-
-
             "llm_validation":
+
                 True,
 
 
-            "llm_qualification_bucket":
+            "llm_opportunity_score":
+
                 result.get(
-                    "qualification_bucket",
+                    "llm_opportunity_score",
+                    0
+                ),
+
+
+            "coi_assessment":
+
+                result.get(
+                    "coi_assessment",
                     ""
                 ),
 
 
-            "llm_confidence":
+            "coi_delta_reason":
+
                 result.get(
-                    "confidence",
+                    "coi_delta_reason",
                     ""
                 ),
 
 
-            "llm_couchbase_fit":
+            "opportunity_summary":
+
                 result.get(
-                    "couchbase_fit",
+                    "opportunity_summary",
                     ""
                 ),
 
 
-            "llm_evidence_strength":
+            "couchbase_trigger":
+
                 result.get(
-                    "evidence_strength",
+                    "couchbase_trigger",
                     ""
                 ),
 
 
-            "llm_database_replacement_signal":
+            "evidence_found":
+
                 result.get(
-                    "database_replacement_signal",
+                    "evidence_found",
+                    []
+                ),
+
+
+            "missing_evidence":
+
+                result.get(
+                    "missing_evidence",
+                    []
+                ),
+
+
+            "database_replacement_probability":
+
+                result.get(
+                    "database_replacement_probability",
                     ""
                 ),
 
 
-            "llm_technical_risk":
+            "technical_risk":
+
                 result.get(
                     "technical_risk",
                     ""
                 ),
 
 
-            "llm_priority_recommendation":
+            "seller_action":
+
                 result.get(
-                    "priority_recommendation",
+                    "seller_action",
                     ""
                 ),
 
 
-            "llm_delta_explanation":
-                result.get(
-                    "delta_explanation",
-                    ""
-                ),
+            "discovery_questions":
 
-
-            "llm_score_blockers":
                 result.get(
-                    "score_blockers",
+                    "discovery_questions",
                     []
-                ),
-
-
-            "llm_strongest_signals":
-                result.get(
-                    "strongest_signals",
-                    []
-                ),
-
-
-            "llm_weakest_assumptions":
-                result.get(
-                    "weakest_assumptions",
-                    []
-                ),
-
-
-            "llm_required_discovery_questions":
-                result.get(
-                    "required_discovery_questions",
-                    []
-                ),
-
-
-            "llm_reasoning":
-                result.get(
-                    "reasoning",
-                    []
-                ),
-
-
-            "llm_recommended_action":
-                result.get(
-                    "recommended_sales_motion",
-                    ""
                 ),
 
 
             "llm_input_tokens":
+
                 get_usage_value(
                     response,
                     "input_tokens"
@@ -220,6 +192,7 @@ def validate_account(row):
 
 
             "llm_output_tokens":
+
                 get_usage_value(
                     response,
                     "output_tokens"
@@ -227,6 +200,7 @@ def validate_account(row):
 
 
             "llm_total_tokens":
+
                 get_usage_value(
                     response,
                     "total_tokens"
@@ -234,15 +208,18 @@ def validate_account(row):
 
 
             "llm_model":
+
                 get_model_name(
                     response
                 ),
 
 
             "llm_raw_response":
+
                 raw_text[:2000]
 
         }
+
 
 
     except Exception as e:
@@ -250,15 +227,19 @@ def validate_account(row):
 
         return {
 
+
             "llm_run_id":
+
                 LLM_RUN_ID,
 
 
             "llm_validation":
+
                 False,
 
 
             "llm_error":
+
                 str(e)
 
         }

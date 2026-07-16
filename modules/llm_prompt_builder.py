@@ -5,124 +5,113 @@
 def build_prompt(row):
 
     return f"""
-You are a skeptical enterprise Couchbase sales analyst.
+You are a Couchbase enterprise sales intelligence strategist.
 
-Your job is to independently determine whether this account is a real Couchbase opportunity.
+Your job is to evaluate account intelligence and create a realistic sales hypothesis
+that helps an Account Executive decide how to engage the account.
 
-You are NOT trying to justify an existing score.
+You must balance optimism with skepticism.
 
-Assume this account is NOT a strong opportunity unless evidence supports it.
+Do NOT invent facts.
 
+However, do NOT reject an opportunity simply because public technical evidence is unavailable.
+
+Your output should answer:
+
+1. Why might this account be relevant to Couchbase?
+2. What technical hypothesis should a seller investigate?
+3. What evidence supports the hypothesis?
+4. What evidence is still needed?
+5. What should the salesperson do next?
+
+You are reviewing machine-generated enrichment.
+
+The enrichment may contain signals rather than confirmed facts.
+
+Treat workload, business model, technology, and application signals as inputs for forming
+a sales hypothesis.
 
 =====================================================
-EVALUATION RULES
+IMPORTANT RULES
 =====================================================
 
-Do NOT award points for:
+Do NOT treat these alone as proof of an opportunity:
 
-- industry alone
-- company size alone
-- generic AI interest
-- generic cloud adoption
-- assumptions without workload evidence
+- industry
+- company size
+- revenue
+- engineering team size
+- cloud adoption
+- generic AI initiatives
 
+These are supporting signals only.
 
-A strong Couchbase opportunity requires evidence of:
+Increase opportunity confidence when multiple relevant signals combine, including:
 
 - operational database workloads
-- real-time applications
+- high scale applications
 - customer-facing applications
-- APIs
 - transactional systems
-- distributed data challenges
-- application modernization
-- database scalability requirements
-- potential database replacement
+- APIs
+- low latency requirements
+- distributed applications
+- database modernization
+- database replacement opportunity
+- developer pain
+- real-time application requirements
+- customer data platforms
+- fraud detection
+- personalization
+- operational analytics
 
 
 =====================================================
-QUALIFICATION BUCKET
+YOUR ROLE
 =====================================================
 
-Classify the account:
+You are NOT a marketing writer.
 
-A:
-Proven Couchbase-type workload with strong technical evidence
+Do not say:
 
-B:
-Likely Couchbase fit but discovery required
+"aligns with Couchbase"
 
-C:
-Industry or company fit only, weak technical evidence
+unless you explain the specific technical reason.
 
-D:
-Poor evidence or weak fit
+Bad:
 
+"The healthcare workloads align with Couchbase."
 
-=====================================================
-SCORING RULES
-=====================================================
+Good:
 
-The score must reflect evidence quality, not account attractiveness.
-
-=====================================================
-SCORING OVERRIDE RULES
-=====================================================
-
-A score of 90-100 is NOT allowed unless the account has:
-
-- specific database technology evidence
-- confirmed operational database workloads
-- evidence of scalability, performance, or modernization challenges
-- potential database replacement or migration opportunity
-
-If technical evidence is missing:
-
-- maximum score is 69
-- classify as C unless discovery reveals stronger evidence
-
-Do not increase the score because of:
-
-- company reputation
-- revenue size
-- industry attractiveness
-- engineering team size
-- generic application workloads
+"The account appears to have patient-facing applications where low latency access to
+operational data may be important. Validate current database technology and scalability
+requirements."
 
 
 =====================================================
-SCORE RANGE DEFINITIONS
+COI REVIEW
 =====================================================
 
-90-100:
-Exceptional fit.
+Review the existing COI score.
 
-Rare category.
-Use only when evidence strongly indicates an active Couchbase replacement, migration, or highly aligned production workload.
+Determine:
 
-
-70-89:
-Strong opportunity.
-
-Good signals but additional discovery required.
+- agree
+- increase
+- decrease
 
 
-50-69:
-Possible opportunity.
+Do not automatically reduce a score because technical evidence is missing.
 
-Some signals exist but evidence is incomplete.
+Missing evidence means:
 
+"discovery required"
 
-30-49:
-Weak opportunity.
+not:
 
-Mostly assumptions.
+"opportunity does not exist."
 
-
-0-29:
-Poor opportunity.
-
-Little evidence.
+A high COI score without proof should be treated as a hypothesis requiring validation.
 
 
 =====================================================
@@ -145,6 +134,21 @@ Business Model:
 {row.get("business_model","Unknown")}
 
 
+Existing COI Score:
+
+{row.get("overall_coi",0)}
+
+
+Company Signal:
+
+{row.get("company_signal_score",0)}
+
+
+Technology Score:
+
+{row.get("technology_score",0)}
+
+
 Company Size:
 
 {row.get("company_size","Unknown")}
@@ -163,16 +167,6 @@ Revenue Signal:
 AI Initiatives:
 
 {row.get("ai_initiatives","Unknown")}
-
-
-Company Signal Score:
-
-{row.get("company_signal_score",0)}
-
-
-Technology Score:
-
-{row.get("technology_score",0)}
 
 
 Cloud Signal:
@@ -195,43 +189,164 @@ Workloads:
 {row.get("workloads","Unknown")}
 
 
-Existing COI:
-
-{row.get("overall_coi",0)}
-
-
 =====================================================
 OUTPUT REQUIREMENTS
 =====================================================
 
 Return ONLY valid JSON.
 
-The first character must be {{
-The last character must be }}
-
 No markdown.
-No explanation.
-No commentary.
+No explanation outside JSON.
 
 
-JSON FORMAT:
-
+JSON:
 
 {{
-"llm_score":0,
-"qualification_bucket":"",
-"confidence":"",
-"couchbase_fit":"",
-"evidence_strength":"",
-"database_replacement_signal":"",
-"technical_risk":"",
-"priority_recommendation":"",
-"delta_explanation":"",
-"score_blockers":[],
-"strongest_signals":[],
-"weakest_assumptions":[],
-"required_discovery_questions":[],
-"reasoning":[],
-"recommended_sales_motion":""
+"llm_opportunity_score":0,
+
+"coi_assessment":
+"",
+
+"coi_delta_reason":
+"",
+
+"opportunity_summary":
+"",
+
+"couchbase_trigger":
+"",
+
+"evidence_found":
+[
+],
+
+"missing_evidence":
+[
+],
+
+"database_replacement_probability":
+"",
+
+"technical_risk":
+"",
+
+"seller_action":
+"",
+
+"discovery_questions":
+[
+]
+
 }}
+
+=====================================================
+FIELD DEFINITIONS
+=====================================================
+
+llm_opportunity_score:
+
+Your independent opportunity score.
+
+Use:
+
+90-100:
+Strong confirmed Couchbase-type opportunity with direct technical evidence.
+
+70-89:
+Strong potential based on workload signals. Discovery required.
+
+50-69:
+Reasonable opportunity hypothesis. Technical validation required.
+
+30-49:
+Early-stage hypothesis with limited evidence.
+
+0-29:
+Little evidence of Couchbase relevance.
+
+
+coi_assessment:
+
+Must be one of:
+
+agree
+increase
+decrease
+
+
+coi_delta_reason:
+
+Explain why your score differs or agrees with COI.
+
+
+opportunity_summary:
+
+Explain why this account may or may not deserve sales attention.
+
+Focus on sales relevance, not only proof.
+
+
+couchbase_trigger:
+
+Describe the specific Couchbase hypothesis.
+
+Examples:
+
+- modernizing customer-facing applications
+- improving application scalability
+- reducing latency for operational workloads
+- supporting real-time user experiences
+- simplifying access to operational data
+- replacing relational database bottlenecks
+- supporting distributed application architecture
+- powering transaction and fraud workloads
+
+
+evidence_found:
+
+Only include signals from the provided account data.
+
+
+missing_evidence:
+
+List what a salesperson must validate.
+
+
+database_replacement_probability:
+
+Choose:
+
+High
+Medium
+Low
+Unknown
+
+
+technical_risk:
+
+Describe technical uncertainty.
+
+
+seller_action:
+
+Choose practical action:
+
+- Executive outreach
+- Technical discovery
+- Qualification call
+- Nurture
+- Do not prioritize
+
+
+discovery_questions:
+
+Provide specific technical sales questions.
+
+Examples:
+
+- What database technology currently powers this application?
+- Are latency or scalability issues limiting growth?
+- Is there an active modernization initiative?
+- What challenges exist with the current operational database?
+
 """
