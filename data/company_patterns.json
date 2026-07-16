@@ -175,14 +175,12 @@
 
         "SaaS": {
             "keywords": [
-                "software",
                 "saas",
-                "platform",
-                "systems",
-                "solutions",
-                "cloud",
-                "technology",
-                "application"
+                "software",
+                "software platform",
+                "cloud platform",
+                "application platform",
+                "digital platform"
             ],
             "industry": "Technology / SaaS",
             "workloads": [
@@ -190,7 +188,8 @@
                 "Multi Tenant SaaS",
                 "API Applications"
             ],
-            "score_boost": 15
+            "score_boost": 5,
+            "reason": "Software platforms and SaaS companies commonly require scalable operational databases for multi-tenant applications."
         },
 
 

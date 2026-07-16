@@ -12,6 +12,7 @@ from pipeline.enrichment_pipeline import (
 from pipeline.technology_pipeline import enrich_technology
 from pipeline.account_enrichment_pipeline import enrich_accounts
 from pipeline.account_pipeline import enrich_account_intelligence
+from pipeline.company_archetype_pipeline import enrich_company_archetypes
 from pipeline.scoring_pipeline import score_accounts
 
 from pipeline.llm_validation_pipeline import validate_accounts
@@ -158,7 +159,17 @@ accounts = accounts.loc[
 print("\nDuplicate columns cleaned")
 
 
+# =====================================================
+# COMPANY ARCHETYPE CLASSIFICATION
+# =====================================================
 
+print(
+    "\nClassifying company archetypes..."
+)
+
+accounts = enrich_company_archetypes(
+    accounts
+)
 # =====================================================
 # COUCHBASE OPPORTUNITY INDEX
 # =====================================================

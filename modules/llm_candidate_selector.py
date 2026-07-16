@@ -6,6 +6,7 @@ def select_llm_candidate(row):
 
     # =====================================================
     # COUCHBASE OPPORTUNITY SCORE
+    # Evidence-based LLM qualification
     # =====================================================
 
     coi = row.get(
@@ -20,37 +21,52 @@ def select_llm_candidate(row):
         coi = 0
 
 
-    if coi >= 80:
 
-        score += 30
+    # =====================================================
+    # WORKLOAD SIGNAL
+    # Strongest indicator
+    # =====================================================
 
-        reasons.append(
-            "High Couchbase Opportunity Index"
-        )
+    workloads = row.get(
+        "workloads",
+        []
+    )
 
 
-    elif coi >= 60:
+    if isinstance(workloads, list):
 
-        score += 15
+        if len(workloads) > 0:
 
-        reasons.append(
-            "Strong Couchbase fit signal"
-        )
+            score += 25
+
+            reasons.append(
+                "Operational workload evidence"
+            )
 
 
 
     # =====================================================
-    # ENGINEERING SIGNAL
+    # DATABASE SIGNAL
     # =====================================================
 
-    if row.get(
-        "engineering_signal"
-    ) == "High":
+    database_signal = str(
+        row.get(
+            "database_signal",
+            ""
+        )
+    )
+
+
+    if database_signal.lower() not in [
+        "",
+        "unknown",
+        "none"
+    ]:
 
         score += 20
 
         reasons.append(
-            "Strong engineering organization"
+            "Database technology signal"
         )
 
 
@@ -80,13 +96,53 @@ def select_llm_candidate(row):
         score += 15
 
         reasons.append(
-            "Modern technology signals"
+            "Modern technology environment"
+        )
+
+
+
+    # =====================================================
+    # ENGINEERING SIGNAL
+    # =====================================================
+
+    if row.get(
+        "engineering_signal"
+    ) == "High":
+
+        score += 10
+
+        reasons.append(
+            "Strong engineering organization"
+        )
+
+
+
+    # =====================================================
+    # COI SIGNAL
+    # =====================================================
+
+    if coi >= 80:
+
+        score += 15
+
+        reasons.append(
+            "High Couchbase Opportunity Index"
+        )
+
+
+    elif coi >= 60:
+
+        score += 10
+
+        reasons.append(
+            "Strong Couchbase Opportunity Index"
         )
 
 
 
     # =====================================================
     # AI SIGNAL
+    # Lower weight
     # =====================================================
 
     ai_signal = str(
@@ -103,32 +159,17 @@ def select_llm_candidate(row):
         "none"
     ]:
 
-        score += 15
+        score += 5
 
         reasons.append(
-            "AI modernization opportunity"
-        )
-
-
-
-    # =====================================================
-    # ENTERPRISE SIGNAL
-    # =====================================================
-
-    if row.get(
-        "company_size"
-    ) == "Enterprise":
-
-        score += 10
-
-        reasons.append(
-            "Enterprise account"
+            "AI modernization signal"
         )
 
 
 
     # =====================================================
     # INDUSTRY FIT
+    # Lower weight
     # =====================================================
 
     industry = row.get(
@@ -144,24 +185,31 @@ def select_llm_candidate(row):
         "Retail"
     ]:
 
-        score += 10
+        score += 5
 
         reasons.append(
-            "Strong Couchbase target industry"
+            "Target industry"
         )
 
 
 
     # =====================================================
     # FINAL DECISION
+    #
+    # LLM candidates are ranked.
+    # Candidate flag only means qualified.
     # =====================================================
 
     candidate = False
 
 
-    if score >= 60:
+    if score >= 50:
 
         candidate = True
+
+        reasons.append(
+            "LLM validation candidate"
+        )
 
 
 

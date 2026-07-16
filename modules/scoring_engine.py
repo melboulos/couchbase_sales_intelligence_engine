@@ -8,25 +8,50 @@ def calculate_coi(row):
     # SIGNAL INPUTS
     # =====================================================
 
-    industry = str(row.get("industry", "Unknown"))
+    industry = str(
+        row.get(
+            "industry",
+            "Unknown"
+        )
+    )
+
 
     financial_segment = str(
-        row.get("financial_segment", "Unknown")
+        row.get(
+            "financial_segment",
+            "Unknown"
+        )
     )
 
+
     business_model = str(
-        row.get("business_model", "Unknown")
+        row.get(
+            "business_model",
+            "Unknown"
+        )
     )
+
+
+    company_archetype = str(
+        row.get(
+            "company_archetype",
+            "Unknown"
+        )
+    )
+
 
     workloads = row.get(
         "workloads",
         []
     )
 
+
     if isinstance(workloads, str):
+
         workloads = [
             workloads
         ]
+
 
 
     company_signal = int(
@@ -71,13 +96,14 @@ def calculate_coi(row):
 
 
     # =====================================================
-    # 1. WORKLOAD FIT (MOST IMPORTANT)
+    # 1. WORKLOAD FIT
     # =====================================================
 
     workload_points = 0
 
 
     high_value_workloads = [
+
         "transaction",
         "payment",
         "customer",
@@ -90,6 +116,7 @@ def calculate_coi(row):
         "operational",
         "integration",
         "data exchange"
+
     ]
 
 
@@ -103,6 +130,7 @@ def calculate_coi(row):
 
     matches = 0
 
+
     for item in high_value_workloads:
 
         if item in workload_text:
@@ -110,13 +138,16 @@ def calculate_coi(row):
             matches += 1
 
 
+
     if matches >= 5:
 
         workload_points = 35
 
+
     elif matches >= 3:
 
         workload_points = 25
+
 
     elif matches >= 1:
 
@@ -131,11 +162,8 @@ def calculate_coi(row):
 
 
     # =====================================================
-    # 2. KNOWN COMPANY SIGNAL
+    # 2. COMPANY SIGNAL
     # =====================================================
-
-    # company intelligence is evidence,
-    # but cannot create Tier 1 alone
 
     company_points = min(
         company_signal,
@@ -160,9 +188,11 @@ def calculate_coi(row):
 
         tech_points = 15
 
+
     elif technology_score >= 20:
 
         tech_points = 10
+
 
     elif technology_score > 0:
 
@@ -252,6 +282,7 @@ def calculate_coi(row):
         enterprise_points = 5
 
 
+
     breakdown["enterprise_points"] = enterprise_points
 
     score += enterprise_points
@@ -259,10 +290,54 @@ def calculate_coi(row):
 
 
     # =====================================================
-    # REMOVE FALSE POSITIVES
+    # 7. BUYER FIT SIGNAL
+    #
+    # Couchbase buying pattern:
+    #
+    # Strong:
+    # - Software platforms
+    # - SaaS
+    # - Healthcare technology
+    # - FinTech
+    #
+    # Neutral:
+    # - Healthcare providers
+    # - Traditional banks
+    #
+    # This is NOT a penalty.
+    # It is buyer likelihood.
     # =====================================================
 
-    # AI alone is NOT opportunity
+    buyer_signal = 0
+
+
+    if company_archetype in [
+
+        "Software / Platform",
+        "Healthcare Technology",
+        "FinTech / Payments"
+
+    ]:
+
+        buyer_signal = 15
+
+
+
+    elif company_archetype == "Other":
+
+        buyer_signal = 5
+
+
+
+    breakdown["buyer_signal_points"] = buyer_signal
+
+    score += buyer_signal
+
+
+
+    # =====================================================
+    # REMOVE FALSE POSITIVES
+    # =====================================================
 
     if (
         workload_points == 0
@@ -332,6 +407,7 @@ def calculate_coi(row):
             "and data platform leaders"
         )
 
+
     elif tier == "Tier 2 Strong Target":
 
         motion = (
@@ -339,11 +415,13 @@ def calculate_coi(row):
             "workloads and database challenges"
         )
 
+
     else:
 
         motion = (
             "Continue enrichment before outreach"
         )
+
 
 
     breakdown["sales_motion"] = motion
