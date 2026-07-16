@@ -1,37 +1,32 @@
 def calculate_coi(row):
 
     score = 0
-
     breakdown = {}
 
 
-
     # =====================================================
-    # INPUT SIGNALS
+    # SIGNAL INPUTS
     # =====================================================
 
-    industry = str(
-        row.get(
-            "industry",
-            "Unknown"
-        )
-    )
-
+    industry = str(row.get("industry", "Unknown"))
 
     financial_segment = str(
-        row.get(
-            "financial_segment",
-            "Unknown"
-        )
+        row.get("financial_segment", "Unknown")
     )
-
 
     business_model = str(
-        row.get(
-            "business_model",
-            "Unknown"
-        )
+        row.get("business_model", "Unknown")
     )
+
+    workloads = row.get(
+        "workloads",
+        []
+    )
+
+    if isinstance(workloads, str):
+        workloads = [
+            workloads
+        ]
 
 
     company_signal = int(
@@ -74,37 +69,115 @@ def calculate_coi(row):
     )
 
 
-    ai = str(
-        row.get(
-            "ai_initiatives",
-            "Unknown"
-        )
+
+    # =====================================================
+    # 1. WORKLOAD FIT (MOST IMPORTANT)
+    # =====================================================
+
+    workload_points = 0
+
+
+    high_value_workloads = [
+        "transaction",
+        "payment",
+        "customer",
+        "profile",
+        "identity",
+        "api",
+        "application",
+        "real-time",
+        "real time",
+        "operational",
+        "integration",
+        "data exchange"
+    ]
+
+
+    workload_text = " ".join(
+        [
+            str(x).lower()
+            for x in workloads
+        ]
     )
 
 
+    matches = 0
+
+    for item in high_value_workloads:
+
+        if item in workload_text:
+
+            matches += 1
+
+
+    if matches >= 5:
+
+        workload_points = 35
+
+    elif matches >= 3:
+
+        workload_points = 25
+
+    elif matches >= 1:
+
+        workload_points = 15
+
+
+
+    breakdown["workload_fit_points"] = workload_points
+
+    score += workload_points
+
+
 
     # =====================================================
-    # COMPANY INTELLIGENCE
+    # 2. KNOWN COMPANY SIGNAL
     # =====================================================
 
-    breakdown["company_signal_points"] = company_signal
+    # company intelligence is evidence,
+    # but cannot create Tier 1 alone
 
-    score += company_signal
+    company_points = min(
+        company_signal,
+        20
+    )
+
+
+    breakdown["company_signal_points"] = company_points
+
+    score += company_points
 
 
 
     # =====================================================
-    # TECHNOLOGY FIT
+    # 3. TECHNOLOGY MATURITY
     # =====================================================
 
-    breakdown["technology_signal_points"] = technology_score
+    tech_points = 0
 
-    score += technology_score
+
+    if technology_score >= 40:
+
+        tech_points = 15
+
+    elif technology_score >= 20:
+
+        tech_points = 10
+
+    elif technology_score > 0:
+
+        tech_points = 5
+
+
+
+    breakdown["technology_signal_points"] = tech_points
+
+    score += tech_points
 
 
 
     # =====================================================
-    # INDUSTRY FIT
+    # 4. INDUSTRY FIT
     # =====================================================
 
     industry_points = 0
@@ -112,69 +185,28 @@ def calculate_coi(row):
 
     if industry == "Technology / SaaS":
 
-        industry_points = 25
+        industry_points = 10
 
 
     elif industry == "Financial Services":
 
-
         if financial_segment == "Payments":
 
-            industry_points = 30
-
-
-        elif financial_segment == "Fintech":
-
-            industry_points = 25
-
-
-        elif financial_segment == "Lending":
-
-            industry_points = 20
-
-
-        elif financial_segment == "Banking":
-
-            industry_points = 10
-
-
-        elif financial_segment == "Investment":
-
-            industry_points = 5
-
-
-        elif financial_segment == "Insurance":
-
-            industry_points = 5
-
+            industry_points = 15
 
         else:
 
             industry_points = 10
 
 
-
     elif industry == "Healthcare":
 
-        industry_points = 20
-
+        industry_points = 10
 
 
     elif industry == "Retail":
 
-        industry_points = 15
-
-
-
-    elif industry == "Transportation and Logistics":
-
-        industry_points = 10
-
-
-
-    elif industry == "Energy and Utilities":
-
-        industry_points = 10
+        industry_points = 8
 
 
 
@@ -185,43 +217,7 @@ def calculate_coi(row):
 
 
     # =====================================================
-    # BUSINESS MODEL
-    # =====================================================
-
-    business_points = 0
-
-
-    if business_model != "Unknown":
-
-        business_points = 10
-
-
-    breakdown["business_model_fit_points"] = business_points
-
-    score += business_points
-
-
-
-    # =====================================================
-    # ENTERPRISE SIGNAL
-    # =====================================================
-
-    enterprise_points = 0
-
-
-    if company_size == "Enterprise":
-
-        enterprise_points = 10
-
-
-    breakdown["enterprise_signal_points"] = enterprise_points
-
-    score += enterprise_points
-
-
-
-    # =====================================================
-    # ENGINEERING SIGNAL
+    # 5. ENGINEERING CAPABILITY
     # =====================================================
 
     engineering_points = 0
@@ -232,111 +228,52 @@ def calculate_coi(row):
         engineering_points = 10
 
 
-    breakdown["engineering_strength_points"] = engineering_points
+    elif engineering == "Medium":
+
+        engineering_points = 5
+
+
+
+    breakdown["engineering_points"] = engineering_points
 
     score += engineering_points
 
 
 
     # =====================================================
-    # REVENUE SIGNAL
+    # 6. ENTERPRISE VALUE
     # =====================================================
 
-    revenue_points = 0
+    enterprise_points = 0
 
 
-    if revenue == "High":
+    if company_size == "Enterprise":
 
-        revenue_points = 5
-
-
-    breakdown["revenue_signal_points"] = revenue_points
-
-    score += revenue_points
+        enterprise_points = 5
 
 
+    breakdown["enterprise_points"] = enterprise_points
 
-    # =====================================================
-    # AI SIGNAL
-    # =====================================================
-
-    ai_points = 0
-
-
-    if ai != "Unknown":
-
-        ai_points = 10
-
-
-    breakdown["ai_signal_points"] = ai_points
-
-    score += ai_points
+    score += enterprise_points
 
 
 
     # =====================================================
-    # CONFIDENCE
+    # REMOVE FALSE POSITIVES
     # =====================================================
 
-    intelligence_fields = 0
+    # AI alone is NOT opportunity
 
+    if (
+        workload_points == 0
+        and
+        company_signal == 0
+    ):
 
-    if industry != "Unknown":
-
-        intelligence_fields += 1
-
-
-    if business_model != "Unknown":
-
-        intelligence_fields += 1
-
-
-    if company_signal > 0:
-
-        intelligence_fields += 1
-
-
-    if technology_score > 0:
-
-        intelligence_fields += 1
-
-
-    if company_size != "Unknown":
-
-        intelligence_fields += 1
-
-
-    if ai != "Unknown":
-
-        intelligence_fields += 1
-
-
-
-    confidence_score = int(
-        (intelligence_fields / 6) * 100
-    )
-
-
-
-    if confidence_score >= 80:
-
-        confidence = "High"
-
-
-    elif confidence_score >= 40:
-
-        confidence = "Medium"
-
-
-    else:
-
-        confidence = "Low"
-
-
-
-    breakdown["confidence_score"] = confidence_score
-
-    breakdown["confidence"] = confidence
+        score = min(
+            score,
+            40
+        )
 
 
 
@@ -355,31 +292,31 @@ def calculate_coi(row):
 
 
     # =====================================================
-    # PRIORITY TIER
+    # PRIORITY
     # =====================================================
 
-    if score >= 90:
+    if score >= 80:
 
-        priority_tier = "Tier 1 Strategic"
-
-
-    elif score >= 70:
-
-        priority_tier = "Tier 2 Strong Target"
+        tier = "Tier 1 Strategic"
 
 
-    elif score >= 50:
+    elif score >= 60:
 
-        priority_tier = "Tier 3 Nurture"
+        tier = "Tier 2 Strong Target"
+
+
+    elif score >= 40:
+
+        tier = "Tier 3 Nurture"
 
 
     else:
 
-        priority_tier = "Tier 4 Monitor"
+        tier = "Tier 4 Monitor"
 
 
 
-    breakdown["priority_tier"] = priority_tier
+    breakdown["priority_tier"] = tier
 
 
 
@@ -387,52 +324,29 @@ def calculate_coi(row):
     # SALES MOTION
     # =====================================================
 
-    if priority_tier == "Tier 1 Strategic":
+    if tier == "Tier 1 Strategic":
 
-        sales_motion = (
-            "Enterprise outbound - "
+        motion = (
+            "Enterprise technical discovery - "
             "target architecture, engineering, "
             "and data platform leaders"
         )
 
+    elif tier == "Tier 2 Strong Target":
 
-    elif industry == "Healthcare":
-
-        sales_motion = (
-            "Healthcare modernization - "
-            "focus on patient data, APIs, "
-            "and interoperability"
+        motion = (
+            "Business discovery - validate "
+            "workloads and database challenges"
         )
-
-
-    elif industry == "Financial Services":
-
-        sales_motion = (
-            "Financial modernization - "
-            "focus on transactions, "
-            "customer data, and risk workloads"
-        )
-
-
-    elif industry == "Technology / SaaS":
-
-        sales_motion = (
-            "Developer platform motion - "
-            "focus on scalability, APIs, "
-            "and cloud-native applications"
-        )
-
 
     else:
 
-        sales_motion = (
-            "Enrich account before outreach"
+        motion = (
+            "Continue enrichment before outreach"
         )
 
 
-
-    breakdown["sales_motion"] = sales_motion
-
+    breakdown["sales_motion"] = motion
 
 
     return breakdown

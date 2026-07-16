@@ -5,7 +5,6 @@ from modules.company_normalizer import normalize_account_name
 from modules.industry_classifier import classify_industry
 from modules.company_intelligence import analyze_company
 
-from schemas.account_intelligence_schema import build_account_intelligence
 
 
 # =====================================================

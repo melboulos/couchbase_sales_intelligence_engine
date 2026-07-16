@@ -1,0 +1,23 @@
+{
+  "account_name": "",
+  "industry": "",
+  "overall_coi": 0,
+  "priority_tier": "",
+  "business_model": "",
+  "workloads": [],
+  "technology_signals": {
+    "cloud_signal": "",
+    "database_signal": "",
+    "ai_signal": ""
+  },
+  "sales_intelligence": {
+    "why_this_account": "",
+    "recommended_action": "",
+    "discovery_questions": []
+  },
+  "llm_validation": {
+    "llm_score": 0,
+    "confidence": "",
+    "reasoning": ""
+  }
+}

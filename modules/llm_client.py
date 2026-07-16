@@ -32,17 +32,28 @@ client = boto3.client(
 def call_llm(prompt):
 
 
+    formatted_prompt = f"""
+<|begin_of_text|>
+<|start_header_id|>user<|end_header_id|>
+
+{prompt}
+
+<|eot_id|>
+<|start_header_id|>assistant<|end_header_id|>
+"""
+
+
     response = client.invoke_model(
 
         modelId=MODEL_ID,
 
         body=json.dumps(
             {
-                "prompt": prompt,
+                "prompt": formatted_prompt,
 
-                "max_gen_len": 1024,
+                "max_gen_len": 300,
 
-                "temperature": 0.1,
+                "temperature": 0,
 
                 "top_p": 0.9
             }
@@ -55,11 +66,9 @@ def call_llm(prompt):
     )
 
 
-
     response_body = json.loads(
         response["body"].read()
     )
-
 
 
     text = response_body.get(
@@ -68,12 +77,10 @@ def call_llm(prompt):
     )
 
 
-
     input_tokens = response_body.get(
         "prompt_token_count",
         0
     )
-
 
 
     output_tokens = response_body.get(
@@ -82,31 +89,20 @@ def call_llm(prompt):
     )
 
 
-
     return {
-
 
         "text":
             text,
 
-
         "input_tokens":
             input_tokens,
-
 
         "output_tokens":
             output_tokens,
 
-
         "total_tokens":
-            (
-                input_tokens
-                +
-                output_tokens
-            ),
-
+            input_tokens + output_tokens,
 
         "model_id":
             MODEL_ID
-
     }

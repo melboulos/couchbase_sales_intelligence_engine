@@ -13,10 +13,14 @@ from pipeline.technology_pipeline import enrich_technology
 from pipeline.account_enrichment_pipeline import enrich_accounts
 from pipeline.account_pipeline import enrich_account_intelligence
 from pipeline.scoring_pipeline import score_accounts
+
 from pipeline.llm_validation_pipeline import validate_accounts
+
 from modules.llm_candidate_selector import select_llm_candidate
 from modules.sales_brief_generator import generate_sales_brief
 from modules.opportunity_explainer import generate_opportunity_explanation
+
+from pipeline.intelligence_export_pipeline import export_account_intelligence
 
 
 
@@ -42,7 +46,12 @@ accounts = load_accounts(
 )
 
 
-print("Columns found:")
+print(
+    f"Loaded {len(accounts)} accounts"
+)
+
+
+print("\nColumns found:")
 
 for col in accounts.columns:
     print(f"- {col}")
@@ -154,7 +163,9 @@ print("\nDuplicate columns cleaned")
 # COUCHBASE OPPORTUNITY INDEX
 # =====================================================
 
-print("\nCalculating Couchbase Opportunity Index...")
+print(
+    "\nCalculating Couchbase Opportunity Index..."
+)
 
 accounts = score_accounts(
     accounts
@@ -162,12 +173,13 @@ accounts = score_accounts(
 
 
 
-
 # =====================================================
 # OPPORTUNITY EXPLANATION
 # =====================================================
 
-print("\nGenerating opportunity explanations...")
+print(
+    "\nGenerating opportunity explanations..."
+)
 
 
 opportunity_results = accounts.apply(
@@ -190,14 +202,16 @@ accounts = pd.concat(
 )
 
 
+
 # =====================================================
-# LLM CANDIDATES
+# SELECT LLM CANDIDATES
 # =====================================================
 
-print("\nSelecting LLM enrichment candidates...")
+print(
+    "\nSelecting LLM enrichment candidates..."
+)
 
 
-# Safety limit during LLM testing
 LLM_TEST_LIMIT = 10
 
 
@@ -207,7 +221,9 @@ llm_candidates = (
         "overall_coi",
         ascending=False
     )
-    .head(LLM_TEST_LIMIT)
+    .head(
+        LLM_TEST_LIMIT
+    )
 )
 
 
@@ -215,6 +231,11 @@ print(
     f"Selected {len(llm_candidates)} accounts for LLM validation"
 )
 
+
+
+# =====================================================
+# ADD LLM CANDIDATE METADATA
+# =====================================================
 
 llm_results = llm_candidates.apply(
     select_llm_candidate,
@@ -236,20 +257,30 @@ llm_candidates = pd.concat(
 )
 
 
+
 # =====================================================
 # LLM VALIDATION
 # =====================================================
 
-print("\nRunning LLM validation...")
+print(
+    "\nRunning LLM validation..."
+)
+
 
 llm_accounts = validate_accounts(
     llm_candidates
 )
+
+
+
 # =====================================================
 # SALES BRIEFS
 # =====================================================
 
-print("\nGenerating sales account briefs...")
+print(
+    "\nGenerating sales account briefs..."
+)
+
 
 brief_results = llm_accounts.apply(
     generate_sales_brief,
@@ -262,12 +293,48 @@ brief_results = pd.DataFrame(
 )
 
 
-accounts = pd.concat(
+llm_accounts = pd.concat(
     [
-        accounts.reset_index(drop=True),
+        llm_accounts.reset_index(drop=True),
         brief_results.reset_index(drop=True)
     ],
     axis=1
+)
+
+
+
+# =====================================================
+# MERGE LLM INTELLIGENCE BACK
+# =====================================================
+
+print(
+    "\nMerging LLM intelligence back into full dataset..."
+)
+
+
+llm_merge_columns = [
+    "Account Name",
+    "llm_score",
+    "llm_confidence",
+    "llm_reasoning",
+    "llm_recommended_action",
+    "recommended_persona",
+    "opportunity_explanation"
+]
+
+
+llm_merge_columns = [
+    c for c in llm_merge_columns
+    if c in llm_accounts.columns
+]
+
+
+accounts = accounts.merge(
+    llm_accounts[
+        llm_merge_columns
+    ],
+    on="Account Name",
+    how="left"
 )
 
 
@@ -284,7 +351,7 @@ accounts = accounts.loc[
 
 
 # =====================================================
-# EXPORT
+# EXPORT EXCEL
 # =====================================================
 
 accounts.to_excel(
@@ -292,8 +359,10 @@ accounts.to_excel(
     index=False
 )
 
+
+
 # =====================================================
-# SAVE LLM VALIDATED OUTPUT
+# EXPORT LLM TEST OUTPUT
 # =====================================================
 
 llm_accounts.to_excel(
@@ -301,8 +370,25 @@ llm_accounts.to_excel(
     index=False
 )
 
-print("\n-------------------------------------------")
-print("Completed")
+
+
+# =====================================================
+# EXPORT STREAMLIT JSON
+# =====================================================
+
+export_account_intelligence(
+    accounts
+)
+
+
+
+print(
+    "\n-------------------------------------------"
+)
+
+print(
+    "Completed"
+)
 
 
 print(

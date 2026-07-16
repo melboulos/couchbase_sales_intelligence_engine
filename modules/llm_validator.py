@@ -1,226 +1,14 @@
-import json
-from datetime import datetime, timezone
-
 from modules.llm_client import call_llm
 
+from modules.llm_json_parser import extract_json
 
+from modules.llm_prompt_builder import build_prompt
 
-# =====================================================
-# RUN ID
-# =====================================================
-
-LLM_RUN_ID = datetime.now(
-    timezone.utc
-).strftime(
-    "%Y%m%d_%H%M%S"
+from modules.llm_utils import (
+    LLM_RUN_ID,
+    get_usage_value,
+    get_model_name
 )
-
-
-
-# =====================================================
-# JSON EXTRACTION
-# =====================================================
-
-def extract_json(text):
-
-    if isinstance(text, dict):
-        return text
-
-
-    text = str(text)
-
-    text = (
-        text
-        .replace("：", ":")
-        .replace("\r", "")
-    )
-
-
-    start = text.find("{")
-    end = text.rfind("}")
-
-
-    if start == -1 or end == -1:
-
-        raise ValueError(
-            "No JSON found"
-        )
-
-
-    return json.loads(
-        text[start:end+1]
-    )
-
-
-
-# =====================================================
-# PROMPT
-# =====================================================
-
-def build_prompt(row):
-
-
-    return f"""
-
-You are an independent Couchbase enterprise sales analyst.
-
-You are reviewing an automated Couchbase Opportunity Index (COI).
-
-DO NOT simply agree with COI.
-
-Your job:
-Determine whether the account deserves the current ranking.
-
-
-Analyze:
-
-1. Workload Fit (40%)
-
-Look for:
-
-- operational database workloads
-- real-time applications
-- customer-facing applications
-- API platforms
-- transactional systems
-- distributed data challenges
-
-
-2. Evidence Quality (25%)
-
-Strong evidence:
-
-- database signals
-- technology platforms
-- engineering complexity
-- application architecture
-
-
-Weak evidence:
-
-- industry alone
-- company size alone
-- generic AI interest
-
-
-3. Technical Alignment (20%)
-
-Evaluate:
-
-- modernization opportunity
-- NoSQL/document fit
-- cloud-native applications
-
-
-4. Business Opportunity (15%)
-
-Evaluate:
-
-- strategic importance
-- adoption likelihood
-
-
-
-ACCOUNT
-
-Name:
-{row.get("Account Name","")}
-
-
-CURRENT COI:
-
-{row.get("overall_coi",0)}
-
-
-Priority Tier:
-
-{row.get("priority_tier","Unknown")}
-
-
-Industry:
-
-{row.get("industry","Unknown")}
-
-
-Business Model:
-
-{row.get("business_model","Unknown")}
-
-
-Company Signal:
-
-{row.get("company_signal_score",0)}
-
-
-Technology Score:
-
-{row.get("technology_score",0)}
-
-
-Technology Signals:
-
-{row.get("technology_signals","Unknown")}
-
-
-Database Signal:
-
-{row.get("database_signal","Unknown")}
-
-
-AI Signal:
-
-{row.get("ai_signal","Unknown")}
-
-
-Workloads:
-
-{row.get("workloads","Unknown")}
-
-
-
-Return ONLY JSON.
-
-
-Format:
-
-
-{{
-"llm_score":0,
-
-"validated":true,
-
-"confidence":"High",
-
-"couchbase_fit":"Strong",
-
-"priority_recommendation":
-"Keep Tier 1",
-
-"delta_explanation":
-"Explain why LLM score differs from COI",
-
-"strongest_signals":
-[
-"signal"
-],
-
-"weakest_assumptions":
-[
-"assumption"
-],
-
-"reasoning":
-[
-"reason"
-],
-
-"recommended_sales_motion":
-"action"
-
-}}
-
-"""
-
 
 
 # =====================================================
@@ -229,18 +17,31 @@ Format:
 
 def validate_account(row):
 
+    response = None
 
     try:
-
 
         response = call_llm(
             build_prompt(row)
         )
 
 
-        result = extract_json(
-            response["text"]
+        raw_text = response.get(
+            "text",
+            ""
         )
+
+
+        result = extract_json(
+            raw_text
+        )
+
+
+        if "llm_score" not in result:
+
+            raise ValueError(
+                "LLM returned JSON but missing llm_score"
+            )
 
 
         llm_score = int(
@@ -261,7 +62,6 @@ def validate_account(row):
 
         return {
 
-
             "llm_run_id":
                 LLM_RUN_ID,
 
@@ -278,6 +78,17 @@ def validate_account(row):
                 llm_score - coi,
 
 
+            "llm_validation":
+                True,
+
+
+            "llm_qualification_bucket":
+                result.get(
+                    "qualification_bucket",
+                    ""
+                ),
+
+
             "llm_confidence":
                 result.get(
                     "confidence",
@@ -288,6 +99,27 @@ def validate_account(row):
             "llm_couchbase_fit":
                 result.get(
                     "couchbase_fit",
+                    ""
+                ),
+
+
+            "llm_evidence_strength":
+                result.get(
+                    "evidence_strength",
+                    ""
+                ),
+
+
+            "llm_database_replacement_signal":
+                result.get(
+                    "database_replacement_signal",
+                    ""
+                ),
+
+
+            "llm_technical_risk":
+                result.get(
+                    "technical_risk",
                     ""
                 ),
 
@@ -306,6 +138,13 @@ def validate_account(row):
                 ),
 
 
+            "llm_score_blockers":
+                result.get(
+                    "score_blockers",
+                    []
+                ),
+
+
             "llm_strongest_signals":
                 result.get(
                     "strongest_signals",
@@ -316,6 +155,13 @@ def validate_account(row):
             "llm_weakest_assumptions":
                 result.get(
                     "weakest_assumptions",
+                    []
+                ),
+
+
+            "llm_required_discovery_questions":
+                result.get(
+                    "required_discovery_questions",
                     []
                 ),
 
@@ -335,34 +181,36 @@ def validate_account(row):
 
 
             "llm_input_tokens":
-                response.get(
-                    "input_tokens",
-                    0
+                get_usage_value(
+                    response,
+                    "input_tokens"
                 ),
 
 
             "llm_output_tokens":
-                response.get(
-                    "output_tokens",
-                    0
+                get_usage_value(
+                    response,
+                    "output_tokens"
                 ),
 
 
             "llm_total_tokens":
-                response.get(
-                    "total_tokens",
-                    0
+                get_usage_value(
+                    response,
+                    "total_tokens"
                 ),
 
 
             "llm_model":
-                response.get(
-                    "model_id",
-                    ""
-                )
+                get_model_name(
+                    response
+                ),
+
+
+            "llm_raw_response":
+                raw_text[:2000]
 
         }
-
 
 
     except Exception as e:
@@ -370,13 +218,8 @@ def validate_account(row):
 
         return {
 
-
             "llm_run_id":
                 LLM_RUN_ID,
-
-
-            "llm_score":
-                None,
 
 
             "derived_coi":
@@ -384,6 +227,10 @@ def validate_account(row):
                     "overall_coi",
                     0
                 ),
+
+
+            "llm_score":
+                None,
 
 
             "llm_score_difference":
@@ -394,19 +241,95 @@ def validate_account(row):
                 False,
 
 
+            "llm_qualification_bucket":
+                "",
+
+
+            "llm_confidence":
+                "",
+
+
+            "llm_couchbase_fit":
+                "",
+
+
+            "llm_evidence_strength":
+                "",
+
+
+            "llm_database_replacement_signal":
+                "",
+
+
+            "llm_technical_risk":
+                "",
+
+
+            "llm_priority_recommendation":
+                "",
+
+
+            "llm_delta_explanation":
+                "",
+
+
+            "llm_score_blockers":
+                [],
+
+
+            "llm_strongest_signals":
+                [],
+
+
+            "llm_weakest_assumptions":
+                [],
+
+
+            "llm_required_discovery_questions":
+                [],
+
+
             "llm_reasoning":
                 str(e),
 
 
+            "llm_recommended_action":
+                "",
+
+
             "llm_input_tokens":
-                0,
+                get_usage_value(
+                    response,
+                    "input_tokens"
+                ),
 
 
             "llm_output_tokens":
-                0,
+                get_usage_value(
+                    response,
+                    "output_tokens"
+                ),
 
 
             "llm_total_tokens":
-                0
+                get_usage_value(
+                    response,
+                    "total_tokens"
+                ),
+
+
+            "llm_model":
+                get_model_name(
+                    response
+                ),
+
+
+            "llm_raw_response":
+                response.get(
+                    "text",
+                    ""
+                )[:2000]
+                if response
+                else ""
 
         }
