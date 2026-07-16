@@ -4,125 +4,48 @@
 
 def build_prompt(row):
 
+    account_name = row.get(
+        "Account Name",
+        ""
+    )
+
+
     return f"""
 You are a Couchbase enterprise sales intelligence strategist.
 
-Your job is to evaluate account intelligence and create a realistic sales hypothesis
-that helps an Account Executive decide how to engage the account.
+Your task is to evaluate ONE specific account and create a sales hypothesis.
 
-You must balance optimism with skepticism.
-
-Do NOT invent facts.
-
-However, do NOT reject an opportunity simply because public technical evidence is unavailable.
-
-Your output should answer:
-
-1. Why might this account be relevant to Couchbase?
-2. What technical hypothesis should a seller investigate?
-3. What evidence supports the hypothesis?
-4. What evidence is still needed?
-5. What should the salesperson do next?
-
-You are reviewing machine-generated enrichment.
-
-The enrichment may contain signals rather than confirmed facts.
-
-Treat workload, business model, technology, and application signals as inputs for forming
-a sales hypothesis.
+You must ONLY analyze the account named below.
 
 =====================================================
-IMPORTANT RULES
+ACCOUNT IDENTITY - CRITICAL
 =====================================================
-
-Do NOT treat these alone as proof of an opportunity:
-
-- industry
-- company size
-- revenue
-- engineering team size
-- cloud adoption
-- generic AI initiatives
-
-These are supporting signals only.
-
-Increase opportunity confidence when multiple relevant signals combine, including:
-
-- operational database workloads
-- high scale applications
-- customer-facing applications
-- transactional systems
-- APIs
-- low latency requirements
-- distributed applications
-- database modernization
-- database replacement opportunity
-- developer pain
-- real-time application requirements
-- customer data platforms
-- fraud detection
-- personalization
-- operational analytics
-
-
-=====================================================
-YOUR ROLE
-=====================================================
-
-You are NOT a marketing writer.
-
-Do not say:
-
-"aligns with Couchbase"
-
-unless you explain the specific technical reason.
-
-Bad:
-
-"The healthcare workloads align with Couchbase."
-
-Good:
-
-"The account appears to have patient-facing applications where low latency access to
-operational data may be important. Validate current database technology and scalability
-requirements."
-
-
-=====================================================
-COI REVIEW
-=====================================================
-
-Review the existing COI score.
-
-Determine:
-
-- agree
-- increase
-- decrease
-
-
-Do not automatically reduce a score because technical evidence is missing.
-
-Missing evidence means:
-
-"discovery required"
-
-not:
-
-"opportunity does not exist."
-
-A high COI score without proof should be treated as a hypothesis requiring validation.
-
-
-=====================================================
-ACCOUNT DATA
-=====================================================
-
 
 Account Name:
 
-{row.get("Account Name","")}
+{account_name}
 
+IMPORTANT:
+- Never mention any other company name.
+- Never substitute another company.
+- Never use examples from memory.
+- Every statement must refer only to {account_name}.
+
+=====================================================
+OBJECTIVE
+=====================================================
+
+Help an Account Executive determine:
+
+1. Is this account worth pursuing?
+2. What Couchbase technical hypothesis should be tested?
+3. What discovery questions should be asked?
+
+You are creating a sales hypothesis, not claiming confirmed facts.
+
+=====================================================
+ACCOUNT SIGNALS
+=====================================================
 
 Industry:
 
@@ -190,163 +113,111 @@ Workloads:
 
 
 =====================================================
-OUTPUT REQUIREMENTS
+RULES
 =====================================================
 
-Return ONLY valid JSON.
+Do NOT invent:
 
-No markdown.
-No explanation outside JSON.
+- database technology
+- customers
+- products
+- applications
+- partnerships
+- technical architecture
 
 
-JSON:
+Industry alone is NOT evidence.
 
-{{
-"llm_opportunity_score":0,
+Use workload signals such as:
 
-"coi_assessment":
-"",
+- APIs
+- operational applications
+- customer-facing systems
+- transactional workloads
+- real-time applications
+- data exchange
+- personalization
+- fraud detection
+- modernization
 
-"coi_delta_reason":
-"",
 
-"opportunity_summary":
-"",
+Missing evidence means:
+"discovery required"
 
-"couchbase_trigger":
-"",
+It does NOT mean:
+"no opportunity exists"
 
-"evidence_found":
-[
-],
-
-"missing_evidence":
-[
-],
-
-"database_replacement_probability":
-"",
-
-"technical_risk":
-"",
-
-"seller_action":
-"",
-
-"discovery_questions":
-[
-]
-
-}}
 
 =====================================================
-FIELD DEFINITIONS
+COI REVIEW
 =====================================================
 
-llm_opportunity_score:
+Review the existing COI.
 
-Your independent opportunity score.
-
-Use:
-
-90-100:
-Strong confirmed Couchbase-type opportunity with direct technical evidence.
-
-70-89:
-Strong potential based on workload signals. Discovery required.
-
-50-69:
-Reasonable opportunity hypothesis. Technical validation required.
-
-30-49:
-Early-stage hypothesis with limited evidence.
-
-0-29:
-Little evidence of Couchbase relevance.
-
-
-coi_assessment:
-
-Must be one of:
+Return:
 
 agree
 increase
 decrease
 
 
-coi_delta_reason:
-
-Explain why your score differs or agrees with COI.
+Explain your reasoning.
 
 
-opportunity_summary:
+=====================================================
+OUTPUT
+=====================================================
 
-Explain why this account may or may not deserve sales attention.
+Return ONLY JSON.
 
-Focus on sales relevance, not only proof.
+No markdown.
 
+Format:
 
-couchbase_trigger:
+{{
+"llm_opportunity_score":0,
 
-Describe the specific Couchbase hypothesis.
+"coi_assessment":"",
 
-Examples:
+"coi_delta_reason":"",
 
-- modernizing customer-facing applications
-- improving application scalability
-- reducing latency for operational workloads
-- supporting real-time user experiences
-- simplifying access to operational data
-- replacing relational database bottlenecks
-- supporting distributed application architecture
-- powering transaction and fraud workloads
+"opportunity_summary":"",
 
+"couchbase_trigger":"",
 
-evidence_found:
+"evidence_found":[],
 
-Only include signals from the provided account data.
+"missing_evidence":[],
 
+"database_replacement_probability":"",
 
-missing_evidence:
+"technical_risk":"",
 
-List what a salesperson must validate.
+"seller_action":"",
 
+"discovery_questions":[]
 
-database_replacement_probability:
-
-Choose:
-
-High
-Medium
-Low
-Unknown
+}}
 
 
-technical_risk:
+=====================================================
+QUALITY BAR
+=====================================================
 
-Describe technical uncertainty.
+Bad:
 
+"{account_name} is a healthcare company that aligns with Couchbase."
 
-seller_action:
+Good:
 
-Choose practical action:
-
-- Executive outreach
-- Technical discovery
-- Qualification call
-- Nurture
-- Do not prioritize
+"{account_name} appears to have operational application workloads where low latency access to operational data may be valuable. Validate current database technology, scale requirements, and modernization initiatives."
 
 
-discovery_questions:
+Remember:
 
-Provide specific technical sales questions.
+THE ACCOUNT IS:
 
-Examples:
+{account_name}
 
-- What database technology currently powers this application?
-- Are latency or scalability issues limiting growth?
-- Is there an active modernization initiative?
-- What challenges exist with the current operational database?
-
+Do not change it.
 """

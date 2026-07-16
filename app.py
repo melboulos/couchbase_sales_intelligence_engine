@@ -1,0 +1,266 @@
+import streamlit as st
+import json
+import pandas as pd
+
+
+# ==============================
+# Page Configuration
+# ==============================
+
+st.set_page_config(
+    page_title="Couchbase Sales Intelligence",
+    page_icon="🚀",
+    layout="wide"
+)
+
+
+# ==============================
+# Load Intelligence Data
+# ==============================
+
+@st.cache_data
+def load_data():
+
+    with open(
+        "output/account_intelligence.json",
+        "r"
+    ) as f:
+        return json.load(f)
+
+
+accounts = load_data()
+
+df = pd.DataFrame(accounts)
+
+
+# ==============================
+# Styling
+# ==============================
+
+st.markdown(
+    """
+    <style>
+
+    .main {
+        background-color: #fafafa;
+    }
+
+    div[data-testid="metric-container"] {
+        background-color: white;
+        border-radius: 12px;
+        padding: 15px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# ==============================
+# Header
+# ==============================
+
+st.title(
+    "🚀 Couchbase Sales Intelligence"
+)
+
+st.subheader(
+    "AI-powered account prioritization"
+)
+
+
+# ==============================
+# KPI Section
+# ==============================
+
+col1, col2, col3, col4 = st.columns(4)
+
+
+col1.metric(
+    "Accounts",
+    len(df)
+)
+
+
+col2.metric(
+    "Strategic",
+    len(
+        df[
+            df.priority_tier ==
+            "Tier 1 Strategic"
+        ]
+    )
+)
+
+
+col3.metric(
+    "Strong Targets",
+    len(
+        df[
+            df.priority_tier ==
+            "Tier 2 Strong Target"
+        ]
+    )
+)
+
+
+col4.metric(
+    "Industries",
+    df.industry.nunique()
+)
+
+
+# ==============================
+# Top Opportunities
+# ==============================
+
+st.divider()
+
+st.header(
+    "🔥 Top Opportunities"
+)
+
+
+top = (
+    df.sort_values(
+        "overall_coi",
+        ascending=False
+    )
+    .head(20)
+)
+
+
+st.dataframe(
+    top[
+        [
+            "account_name",
+            "industry",
+            "overall_coi",
+            "priority_tier",
+            "business_model"
+        ]
+    ],
+    hide_index=True,
+    use_container_width=True
+)
+
+
+# ==============================
+# Account Explorer
+# ==============================
+
+st.divider()
+
+st.header(
+    "🔎 Account Explorer"
+)
+
+
+selected_account = st.selectbox(
+    "Choose an account",
+    sorted(
+        df.account_name.tolist()
+    )
+)
+
+
+account = df[
+    df.account_name ==
+    selected_account
+].iloc[0]
+
+
+# ==============================
+# Account Card
+# ==============================
+
+left, middle, right = st.columns(3)
+
+
+left.metric(
+    "Opportunity Score",
+    account.overall_coi
+)
+
+
+middle.write(
+    "**Industry**"
+)
+
+middle.write(
+    account.industry
+)
+
+
+right.write(
+    "**Priority**"
+)
+
+right.write(
+    account.priority_tier
+)
+
+
+st.divider()
+
+
+st.subheader(
+    account.account_name
+)
+
+
+st.write(
+    "### Business Model"
+)
+
+st.write(
+    account.business_model
+)
+
+
+st.write(
+    "### Likely Workloads"
+)
+
+for workload in account.workloads:
+    st.write(
+        f"▪ {workload}"
+    )
+
+
+st.write(
+    "### Technology Signals"
+)
+
+st.json(
+    account.technology_signals
+)
+
+
+st.write(
+    "### AI Sales Assistant"
+)
+
+llm = account.llm_validation
+
+
+if llm.get("reasoning"):
+
+    st.info(
+        llm["reasoning"]
+    )
+
+else:
+
+    st.write(
+        "No AI validation available yet."
+    )
+
+
+if llm.get("recommended_action"):
+
+    st.success(
+        llm["recommended_action"]
+    )

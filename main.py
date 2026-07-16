@@ -31,10 +31,7 @@ print("-------------------------------------------")
 
 INPUT_FILE = "input/Enterprise_East_Account_List.xlsx"
 
-OUTPUT_FILE = (
-    "output/"
-    "Enterprise_East_Scored.xlsx"
-)
+OUTPUT_FILE = "output/Enterprise_East_Scored.xlsx"
 
 
 
@@ -42,10 +39,7 @@ OUTPUT_FILE = (
 # LOAD
 # =====================================================
 
-accounts = load_accounts(
-    INPUT_FILE
-)
-
+accounts = load_accounts(INPUT_FILE)
 
 print(
     f"Loaded {len(accounts)} accounts"
@@ -65,9 +59,7 @@ for col in accounts.columns:
 
 print("\nRunning normalization...")
 
-accounts = normalize_accounts(
-    accounts
-)
+accounts = normalize_accounts(accounts)
 
 
 
@@ -77,9 +69,7 @@ accounts = normalize_accounts(
 
 print("\nRunning industry classification...")
 
-accounts = classify_industries(
-    accounts
-)
+accounts = classify_industries(accounts)
 
 
 
@@ -89,24 +79,7 @@ accounts = classify_industries(
 
 print("\nRunning company intelligence...")
 
-accounts = enrich_company_intelligence(
-    accounts
-)
-
-
-print("\nCompany intelligence sample:")
-
-print(
-    accounts[
-        [
-            "Account Name",
-            "industry",
-            "business_model",
-            "workloads",
-            "company_signal_score"
-        ]
-    ].head(25)
-)
+accounts = enrich_company_intelligence(accounts)
 
 
 
@@ -116,9 +89,7 @@ print(
 
 print("\nRunning technology enrichment...")
 
-accounts = enrich_technology(
-    accounts
-)
+accounts = enrich_technology(accounts)
 
 
 
@@ -128,9 +99,7 @@ accounts = enrich_technology(
 
 print("\nRunning account intelligence...")
 
-accounts = enrich_account_intelligence(
-    accounts
-)
+accounts = enrich_account_intelligence(accounts)
 
 
 
@@ -140,9 +109,7 @@ accounts = enrich_account_intelligence(
 
 print("\nRunning account enrichment...")
 
-accounts = enrich_accounts(
-    accounts
-)
+accounts = enrich_accounts(accounts)
 
 
 
@@ -156,31 +123,33 @@ accounts = accounts.loc[
 ]
 
 
-print("\nDuplicate columns cleaned")
+print(
+    "\nDuplicate columns cleaned"
+)
+
 
 
 # =====================================================
-# COMPANY ARCHETYPE CLASSIFICATION
+# COMPANY ARCHETYPE
 # =====================================================
 
 print(
     "\nClassifying company archetypes..."
 )
 
-accounts = enrich_company_archetypes(
-    accounts
-)
+accounts = enrich_company_archetypes(accounts)
+
+
+
 # =====================================================
-# COUCHBASE OPPORTUNITY INDEX
+# SCORE
 # =====================================================
 
 print(
     "\nCalculating Couchbase Opportunity Index..."
 )
 
-accounts = score_accounts(
-    accounts
-)
+accounts = score_accounts(accounts)
 
 
 
@@ -215,7 +184,7 @@ accounts = pd.concat(
 
 
 # =====================================================
-# SELECT LLM CANDIDATES
+# LLM CANDIDATE SELECTION
 # =====================================================
 
 print(
@@ -245,7 +214,7 @@ print(
 
 
 # =====================================================
-# ADD LLM CANDIDATE METADATA
+# ADD LLM METADATA
 # =====================================================
 
 llm_results = llm_candidates.apply(
@@ -324,20 +293,57 @@ print(
 
 
 llm_merge_columns = [
+
     "Account Name",
-    "llm_score",
-    "llm_confidence",
-    "llm_reasoning",
-    "llm_recommended_action",
-    "recommended_persona",
-    "opportunity_explanation"
+
+    "llm_run_id",
+
+    "llm_validation",
+
+    "llm_opportunity_score",
+
+    "coi_assessment",
+
+    "coi_delta_reason",
+
+    "opportunity_summary",
+
+    "couchbase_trigger",
+
+    "evidence_found",
+
+    "missing_evidence",
+
+    "database_replacement_probability",
+
+    "technical_risk",
+
+    "seller_action",
+
+    "discovery_questions",
+
+    "llm_reasoning"
+
 ]
 
 
 llm_merge_columns = [
-    c for c in llm_merge_columns
+    c
+    for c in llm_merge_columns
     if c in llm_accounts.columns
 ]
+
+
+print(
+    "\nLLM merge columns:"
+)
+
+for c in llm_merge_columns:
+    print(
+        "-",
+        c
+    )
+
 
 
 accounts = accounts.merge(

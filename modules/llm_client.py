@@ -51,11 +51,11 @@ def call_llm(prompt):
             {
                 "prompt": formatted_prompt,
 
-                "max_gen_len": 300,
+                "max_gen_len": 800,
 
                 "temperature": 0,
 
-                "top_p": 0.9
+                "top_p": 0.5
             }
         ),
 

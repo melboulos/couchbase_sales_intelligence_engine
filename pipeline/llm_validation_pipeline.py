@@ -4,18 +4,8 @@ import os
 
 from datetime import datetime, timezone
 
-from concurrent.futures import (
-    ThreadPoolExecutor,
-    as_completed
-)
-
 from modules.llm_validator import validate_account
 
-
-
-# =====================================================
-# TOKEN COST CONFIGURATION
-# =====================================================
 
 LLM_INPUT_COST_PER_1K = 0.99
 LLM_OUTPUT_COST_PER_1K = 0.99
@@ -26,7 +16,6 @@ LLM_RESULTS_FILE = (
     "llm_validation_results.xlsx"
 )
 
-
 TOKEN_SUMMARY_FILE = (
     "output/"
     "llm_token_summary.xlsx"
@@ -34,36 +23,22 @@ TOKEN_SUMMARY_FILE = (
 
 
 
-# =====================================================
-# TOKEN SUMMARY
-# =====================================================
-
-def generate_token_summary(
-    llm_results
-):
+def generate_token_summary(llm_results):
 
     if len(llm_results) == 0:
         return pd.DataFrame()
 
 
     input_tokens = int(
-        llm_results[
-            "llm_input_tokens"
-        ].sum()
+        llm_results["llm_input_tokens"].fillna(0).sum()
     )
-
 
     output_tokens = int(
-        llm_results[
-            "llm_output_tokens"
-        ].sum()
+        llm_results["llm_output_tokens"].fillna(0).sum()
     )
 
-
     total_tokens = int(
-        llm_results[
-            "llm_total_tokens"
-        ].sum()
+        llm_results["llm_total_tokens"].fillna(0).sum()
     )
 
 
@@ -83,121 +58,61 @@ def generate_token_summary(
     )
 
 
-    count = len(
-        llm_results
-    )
+    count = len(llm_results)
 
 
     return pd.DataFrame(
-        [
-            {
-                "llm_run_id":
-                    llm_results[
-                        "llm_run_id"
-                    ].iloc[0],
+        [{
+            "llm_run_id":
+                llm_results["llm_run_id"].iloc[0],
 
-                "llm_model":
-                    llm_results[
-                        "llm_model"
-                    ].iloc[0],
+            "llm_model":
+                llm_results["llm_model"].iloc[0],
 
-                "run_timestamp":
-                    datetime.now(
-                        timezone.utc
-                    ).strftime(
-                        "%Y-%m-%d %H:%M:%S UTC"
-                    ),
+            "run_timestamp":
+                datetime.now(
+                    timezone.utc
+                ).strftime(
+                    "%Y-%m-%d %H:%M:%S UTC"
+                ),
 
-                "accounts_validated":
-                    count,
+            "accounts_validated":
+                count,
 
-                "input_tokens":
-                    input_tokens,
+            "input_tokens":
+                input_tokens,
 
-                "output_tokens":
-                    output_tokens,
+            "output_tokens":
+                output_tokens,
 
-                "total_tokens":
-                    total_tokens,
+            "total_tokens":
+                total_tokens,
 
-                "average_tokens_per_account":
-                    int(
-                        total_tokens /
-                        count
-                    ),
+            "average_tokens_per_account":
+                int(total_tokens / count),
 
-                "input_cost_usd":
-                    round(
-                        input_cost,
-                        4
-                    ),
+            "input_cost_usd":
+                round(input_cost,4),
 
-                "output_cost_usd":
-                    round(
-                        output_cost,
-                        4
-                    ),
+            "output_cost_usd":
+                round(output_cost,4),
 
-                "total_cost_usd":
-                    round(
-                        total_cost,
-                        4
-                    ),
+            "total_cost_usd":
+                round(total_cost,4),
 
-                "average_cost_per_account":
-                    round(
-                        total_cost /
-                        count,
-                        4
-                    )
-            }
-        ]
+            "average_cost_per_account":
+                round(total_cost / count,4)
+        }]
     )
 
 
 
-# =====================================================
-# SINGLE LLM CALL
-# =====================================================
-
-def run_llm_validation(
-    row
-):
-
-    account_name = row.get(
-        "Account Name",
-        "Unknown"
-    )
-
-
-    result = validate_account(
-        row
-    )
-
-
-    return (
-        account_name,
-        result
-    )
-
-
-
-# =====================================================
-# MAIN VALIDATION PIPELINE
-# =====================================================
-
-def validate_accounts(
-    accounts
-):
+def validate_accounts(accounts):
 
     print(
         "\nStarting LLM validation..."
     )
 
-
-    # =================================================
-    # ACCOUNTS ARE PRESELECTED BY MAIN PIPELINE
-    # =================================================
 
     llm_accounts = accounts.copy()
 
@@ -217,19 +132,17 @@ def validate_accounts(
 
 
 
-    # =====================================================
-    # LOAD EXISTING CHECKPOINT
-    # =====================================================
+    # ==========================================
+    # USE CHECKPOINT IF AVAILABLE
+    # ==========================================
 
     if os.path.exists(
         LLM_RESULTS_FILE
     ):
 
-
         print(
-            "\nExisting LLM results found."
+            "Existing LLM results found."
         )
-
 
         print(
             "Skipping Bedrock calls."
@@ -244,15 +157,8 @@ def validate_accounts(
     else:
 
 
-        # =====================================================
-        # RUN LLM THREADS
-        # =====================================================
-
-        MAX_WORKERS = 5
-
-
         print(
-            f"Using {MAX_WORKERS} LLM workers"
+            "Running sequential LLM validation..."
         )
 
 
@@ -262,84 +168,45 @@ def validate_accounts(
         start_time = time.time()
 
 
+        for idx, row in llm_accounts.iterrows():
 
-        with ThreadPoolExecutor(
-            max_workers=MAX_WORKERS
-        ) as executor:
-
-
-            futures = []
-
-
-            for _, row in llm_accounts.iterrows():
-
-                futures.append(
-                    executor.submit(
-                        run_llm_validation,
-                        row
-                    )
-                )
+            account_name = row.get(
+                "Account Name",
+                "Unknown"
+            )
 
 
-
-            completed = 0
-
-
-
-            for future in as_completed(
-                futures
-            ):
+            print(
+                f"[{idx+1}/{total}] {account_name}"
+            )
 
 
-                account_name, result = (
-                    future.result()
-                )
+            result = validate_account(
+                row
+            )
 
 
-                results.append(
-                    result
-                )
+            result["source_index"] = idx
 
 
-                completed += 1
+            results.append(
+                result
+            )
 
 
-
-                elapsed = (
-                    time.time()
-                    -
-                    start_time
-                )
-
-
-                avg_time = (
-                    elapsed /
-                    completed
-                )
+            elapsed = (
+                time.time()
+                -
+                start_time
+            )
 
 
-                remaining = (
-                    avg_time *
-                    (
-                        total -
-                        completed
-                    )
-                )
+            print(
+                f"Completed {idx+1}/{total} "
+                f"Elapsed {elapsed:.1f}s"
+            )
 
 
-                print(
-                    f"[{completed}/{total}] "
-                    f"{account_name} | "
-                    f"Elapsed: {elapsed/60:.1f} min | "
-                    f"Avg: {avg_time:.2f}s | "
-                    f"ETA: {remaining/60:.1f} min"
-                )
-
-
-
-        # =====================================================
-        # CREATE RESULTS DATAFRAME
-        # =====================================================
 
         llm_results = pd.DataFrame(
             results
@@ -352,11 +219,6 @@ def validate_accounts(
         ]
 
 
-
-        # =====================================================
-        # SAVE CHECKPOINT
-        # =====================================================
-
         llm_results.to_excel(
             LLM_RESULTS_FILE,
             index=False
@@ -364,14 +226,14 @@ def validate_accounts(
 
 
         print(
-            f"\nSaved LLM checkpoint: {LLM_RESULTS_FILE}"
+            f"Saved LLM checkpoint: {LLM_RESULTS_FILE}"
         )
 
 
 
-    # =====================================================
-    # TOKEN COST REPORT
-    # =====================================================
+    # ==========================================
+    # TOKEN REPORT
+    # ==========================================
 
     token_summary = generate_token_summary(
         llm_results
@@ -407,41 +269,28 @@ def validate_accounts(
 
 
 
-    # =====================================================
-    # CLEAN BEFORE MERGE
-    # =====================================================
+    # ==========================================
+    # MERGE BACK BY INDEX
+    # ==========================================
 
-    llm_accounts = llm_accounts.loc[
-        :,
-        ~llm_accounts.columns.duplicated()
-    ]
-
-
-    llm_results = llm_results.loc[
-        :,
-        ~llm_results.columns.duplicated()
-    ]
-
-
-
-    # =====================================================
-    # MERGE LLM RESULTS
-    # =====================================================
-
-    llm_accounts = pd.concat(
-        [
-            llm_accounts.reset_index(drop=True),
-            llm_results.reset_index(drop=True)
-        ],
-        axis=1
+    llm_results = llm_results.set_index(
+        "source_index"
     )
 
 
+    for col in llm_results.columns:
+
+        llm_accounts.loc[
+            llm_results.index,
+            col
+        ] = llm_results[col]
+
+
+
     llm_accounts = llm_accounts.loc[
         :,
         ~llm_accounts.columns.duplicated()
     ]
-
 
 
     return llm_accounts
