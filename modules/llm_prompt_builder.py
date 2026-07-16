@@ -63,13 +63,42 @@ Poor evidence or weak fit
 SCORING RULES
 =====================================================
 
+The score must reflect evidence quality, not account attractiveness.
+
+=====================================================
+SCORING OVERRIDE RULES
+=====================================================
+
+A score of 90-100 is NOT allowed unless the account has:
+
+- specific database technology evidence
+- confirmed operational database workloads
+- evidence of scalability, performance, or modernization challenges
+- potential database replacement or migration opportunity
+
+If technical evidence is missing:
+
+- maximum score is 69
+- classify as C unless discovery reveals stronger evidence
+
+Do not increase the score because of:
+
+- company reputation
+- revenue size
+- industry attractiveness
+- engineering team size
+- generic application workloads
+
+
+=====================================================
+SCORE RANGE DEFINITIONS
+=====================================================
+
 90-100:
 Exceptional fit.
 
-Requires:
-- specific workloads
-- technical evidence
-- database alignment
+Rare category.
+Use only when evidence strongly indicates an active Couchbase replacement, migration, or highly aligned production workload.
 
 
 70-89:

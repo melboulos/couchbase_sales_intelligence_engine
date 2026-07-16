@@ -151,6 +151,13 @@ def export_account_intelligence(
 
             "llm_validation": {
 
+            "llm_original_score":
+                clean_value(
+                    row.get(
+                        "llm_score",
+                        ""
+                    )
+                ),
                 "llm_score":
                     clean_value(
                         row.get(

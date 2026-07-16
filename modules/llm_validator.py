@@ -44,12 +44,40 @@ def validate_account(row):
             )
 
 
-        llm_score = int(
+        # =====================================================
+        # LLM SCORE VALIDATION GUARDRAIL
+        # =====================================================
+
+        original_llm_score = int(
             result.get(
                 "llm_score",
                 0
             )
         )
+
+
+        database_signal = str(
+            row.get(
+                "database_signal",
+                ""
+            )
+        )
+
+
+        llm_score = original_llm_score
+
+
+        if (
+            llm_score > 69
+            and
+            database_signal in [
+                "Unknown",
+                "Application Database"
+            ]
+        ):
+
+            llm_score = 69
+
 
 
         coi = int(
@@ -68,6 +96,10 @@ def validate_account(row):
 
             "derived_coi":
                 coi,
+
+
+            "llm_original_score":
+                original_llm_score,
 
 
             "llm_score":
@@ -222,114 +254,11 @@ def validate_account(row):
                 LLM_RUN_ID,
 
 
-            "derived_coi":
-                row.get(
-                    "overall_coi",
-                    0
-                ),
-
-
-            "llm_score":
-                None,
-
-
-            "llm_score_difference":
-                None,
-
-
             "llm_validation":
                 False,
 
 
-            "llm_qualification_bucket":
-                "",
-
-
-            "llm_confidence":
-                "",
-
-
-            "llm_couchbase_fit":
-                "",
-
-
-            "llm_evidence_strength":
-                "",
-
-
-            "llm_database_replacement_signal":
-                "",
-
-
-            "llm_technical_risk":
-                "",
-
-
-            "llm_priority_recommendation":
-                "",
-
-
-            "llm_delta_explanation":
-                "",
-
-
-            "llm_score_blockers":
-                [],
-
-
-            "llm_strongest_signals":
-                [],
-
-
-            "llm_weakest_assumptions":
-                [],
-
-
-            "llm_required_discovery_questions":
-                [],
-
-
-            "llm_reasoning":
-                str(e),
-
-
-            "llm_recommended_action":
-                "",
-
-
-            "llm_input_tokens":
-                get_usage_value(
-                    response,
-                    "input_tokens"
-                ),
-
-
-            "llm_output_tokens":
-                get_usage_value(
-                    response,
-                    "output_tokens"
-                ),
-
-
-            "llm_total_tokens":
-                get_usage_value(
-                    response,
-                    "total_tokens"
-                ),
-
-
-            "llm_model":
-                get_model_name(
-                    response
-                ),
-
-
-            "llm_raw_response":
-                response.get(
-                    "text",
-                    ""
-                )[:2000]
-                if response
-                else ""
+            "llm_error":
+                str(e)
 
         }
