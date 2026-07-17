@@ -4,8 +4,7 @@ import os
 
 from datetime import datetime, timezone
 
-from modules.llm_validator import validate_account
-
+from modules.sales_intelligence_pipeline import validate_account
 
 LLM_INPUT_COST_PER_1K = 0.99
 LLM_OUTPUT_COST_PER_1K = 0.99
