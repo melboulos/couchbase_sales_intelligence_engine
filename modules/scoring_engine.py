@@ -1,11 +1,44 @@
+# =====================================================
+# COI SCORING ENGINE
+# Couchbase Sales Intelligence Agent
+#
+# Purpose:
+# Determine likelihood that an account has a
+# Couchbase-relevant operational workload opportunity.
+#
+# Philosophy:
+#
+# Operational Workload Fit
+#        >
+# Database Opportunity
+#        >
+# Real-Time Requirements
+#        >
+# Technical Capability
+#        >
+# Company Context
+#
+# Goal:
+# Help sellers identify accounts worth calling,
+# create better discovery conversations,
+# and shorten sales cycles.
+# =====================================================
+
+
 def calculate_coi(row):
 
     score = 0
+
     breakdown = {}
+
+    signals_found = []
+
+    missing_signals = []
+
 
 
     # =====================================================
-    # SIGNAL INPUTS
+    # INPUT NORMALIZATION
     # =====================================================
 
     industry = str(
@@ -16,26 +49,10 @@ def calculate_coi(row):
     )
 
 
-    financial_segment = str(
+    workload_profile = str(
         row.get(
-            "financial_segment",
-            "Unknown"
-        )
-    )
-
-
-    business_model = str(
-        row.get(
-            "business_model",
-            "Unknown"
-        )
-    )
-
-
-    company_archetype = str(
-        row.get(
-            "company_archetype",
-            "Unknown"
+            "workload_profile",
+            ""
         )
     )
 
@@ -53,10 +70,33 @@ def calculate_coi(row):
         ]
 
 
+    workload_text = " ".join(
+        [
+            str(x).lower()
+            for x in workloads
+        ]
+    )
 
-    company_signal = int(
+
+    database_intensity = int(
         row.get(
-            "company_signal_score",
+            "database_intensity",
+            0
+        )
+    )
+
+
+    operational_complexity = int(
+        row.get(
+            "operational_complexity",
+            0
+        )
+    )
+
+
+    realtime_requirement = int(
+        row.get(
+            "realtime_requirement",
             0
         )
     )
@@ -70,14 +110,6 @@ def calculate_coi(row):
     )
 
 
-    company_size = str(
-        row.get(
-            "company_size",
-            "Unknown"
-        )
-    )
-
-
     engineering = str(
         row.get(
             "engineering_signal",
@@ -86,9 +118,9 @@ def calculate_coi(row):
     )
 
 
-    revenue = str(
+    company_size = str(
         row.get(
-            "revenue_signal",
+            "company_size",
             "Unknown"
         )
     )
@@ -96,259 +128,271 @@ def calculate_coi(row):
 
 
     # =====================================================
-    # 1. WORKLOAD FIT
+    # 1. OPERATIONAL WORKLOAD FIT
+    #
+    # Maximum 40 points
+    #
+    # Primary Couchbase indicator
     # =====================================================
 
     workload_points = 0
 
 
-    high_value_workloads = [
+    WORKLOAD_WEIGHTS = {
 
-        "transaction",
-        "payment",
-        "customer",
-        "profile",
-        "identity",
-        "api",
-        "application",
-        "real-time",
-        "real time",
-        "operational",
-        "integration",
-        "data exchange"
+        "transaction": 10,
 
-    ]
+        "payment": 10,
+
+        "customer": 10,
+
+        "profile": 10,
+
+        "identity": 8,
+
+        "api": 8,
+
+        "application": 8,
+
+        "real-time": 10,
+
+        "real time": 10,
+
+        "mobile": 8,
+
+        "integration": 8,
+
+        "operational": 10,
+
+        "data exchange": 8
+
+    }
 
 
-    workload_text = " ".join(
-        [
-            str(x).lower()
-            for x in workloads
-        ]
+
+    for signal, points in WORKLOAD_WEIGHTS.items():
+
+        if signal in workload_text:
+
+            workload_points += points
+
+            signals_found.append(
+                "Workload: " + signal
+            )
+
+
+
+    # Structured workload profile bonus
+
+    if workload_profile:
+
+        workload_points += 10
+
+        signals_found.append(
+            "Workload profile: "
+            + workload_profile
+        )
+
+
+
+    workload_points = min(
+        workload_points,
+        40
     )
 
 
-    matches = 0
+    if workload_points == 0:
 
-
-    for item in high_value_workloads:
-
-        if item in workload_text:
-
-            matches += 1
-
-
-
-    if matches >= 5:
-
-        workload_points = 35
-
-
-    elif matches >= 3:
-
-        workload_points = 25
-
-
-    elif matches >= 1:
-
-        workload_points = 15
-
+        missing_signals.append(
+            "Operational workload evidence"
+        )
 
 
     breakdown["workload_fit_points"] = workload_points
+
 
     score += workload_points
 
 
 
     # =====================================================
-    # 2. COMPANY SIGNAL
+    # 2. DATABASE OPPORTUNITY
+    #
+    # Maximum 30 points
+    #
+    # Replaces keyword guessing
     # =====================================================
 
-    company_points = min(
-        company_signal,
-        20
+    database_points = 0
+
+
+    database_points += database_intensity * 3
+
+
+    database_points += operational_complexity * 3
+
+
+
+    database_points = min(
+        database_points,
+        30
     )
 
 
-    breakdown["company_signal_points"] = company_points
+    if database_points > 0:
+
+        signals_found.append(
+            "Database intensity: "
+            + str(database_intensity)
+        )
+
+        signals_found.append(
+            "Operational complexity: "
+            + str(operational_complexity)
+        )
+
+
+    else:
+
+        missing_signals.append(
+            "Database opportunity evidence"
+        )
+
+
+
+    breakdown["database_opportunity_points"] = database_points
+
+
+    score += database_points
+
+
+
+    # =====================================================
+    # 3. REAL-TIME REQUIREMENT
+    #
+    # Maximum 15 points
+    # =====================================================
+
+    realtime_points = realtime_requirement * 3
+
+
+    realtime_points = min(
+        realtime_points,
+        15
+    )
+
+
+    if realtime_points > 0:
+
+        signals_found.append(
+            "Real-time requirement"
+        )
+
+
+    else:
+
+        missing_signals.append(
+            "Real-time workload evidence"
+        )
+
+
+
+    breakdown["realtime_points"] = realtime_points
+
+
+    score += realtime_points
+
+
+
+    # =====================================================
+    # 4. TECHNICAL ENVIRONMENT
+    #
+    # Maximum 10 points
+    # =====================================================
+
+    technical_points = 0
+
+
+    if engineering == "High":
+
+        technical_points += 5
+
+        signals_found.append(
+            "High engineering capability"
+        )
+
+
+    elif engineering == "Medium":
+
+        technical_points += 3
+
+
+
+    if technology_score >= 40:
+
+        technical_points += 5
+
+        signals_found.append(
+            "Technology maturity"
+        )
+
+
+    elif technology_score >= 20:
+
+        technical_points += 3
+
+
+
+    technical_points = min(
+        technical_points,
+        10
+    )
+
+
+    breakdown["technical_environment_points"] = technical_points
+
+
+    score += technical_points
+
+
+
+    # =====================================================
+    # 5. COMPANY CONTEXT
+    #
+    # Maximum 5 points
+    #
+    # Supporting only
+    # =====================================================
+
+    company_points = 0
+
+
+    if company_size == "Enterprise":
+
+        company_points = 5
+
+        signals_found.append(
+            "Enterprise company"
+        )
+
+
+    breakdown["company_context_points"] = company_points
+
 
     score += company_points
 
 
 
     # =====================================================
-    # 3. TECHNOLOGY MATURITY
-    # =====================================================
-
-    tech_points = 0
-
-
-    if technology_score >= 40:
-
-        tech_points = 15
-
-
-    elif technology_score >= 20:
-
-        tech_points = 10
-
-
-    elif technology_score > 0:
-
-        tech_points = 5
-
-
-
-    breakdown["technology_signal_points"] = tech_points
-
-    score += tech_points
-
-
-
-    # =====================================================
-    # 4. INDUSTRY FIT
-    # =====================================================
-
-    industry_points = 0
-
-
-    if industry == "Technology / SaaS":
-
-        industry_points = 10
-
-
-    elif industry == "Financial Services":
-
-        if financial_segment == "Payments":
-
-            industry_points = 15
-
-        else:
-
-            industry_points = 10
-
-
-    elif industry == "Healthcare":
-
-        industry_points = 10
-
-
-    elif industry == "Retail":
-
-        industry_points = 8
-
-
-
-    breakdown["industry_fit_points"] = industry_points
-
-    score += industry_points
-
-
-
-    # =====================================================
-    # 5. ENGINEERING CAPABILITY
-    # =====================================================
-
-    engineering_points = 0
-
-
-    if engineering == "High":
-
-        engineering_points = 10
-
-
-    elif engineering == "Medium":
-
-        engineering_points = 5
-
-
-
-    breakdown["engineering_points"] = engineering_points
-
-    score += engineering_points
-
-
-
-    # =====================================================
-    # 6. ENTERPRISE VALUE
-    # =====================================================
-
-    enterprise_points = 0
-
-
-    if company_size == "Enterprise":
-
-        enterprise_points = 5
-
-
-
-    breakdown["enterprise_points"] = enterprise_points
-
-    score += enterprise_points
-
-
-
-    # =====================================================
-    # 7. BUYER FIT SIGNAL
+    # INDUSTRY CONTEXT
     #
-    # Couchbase buying pattern:
-    #
-    # Strong:
-    # - Software platforms
-    # - SaaS
-    # - Healthcare technology
-    # - FinTech
-    #
-    # Neutral:
-    # - Healthcare providers
-    # - Traditional banks
-    #
-    # This is NOT a penalty.
-    # It is buyer likelihood.
+    # Does not drive score
     # =====================================================
 
-    buyer_signal = 0
-
-
-    if company_archetype in [
-
-        "Software / Platform",
-        "Healthcare Technology",
-        "FinTech / Payments"
-
-    ]:
-
-        buyer_signal = 15
-
-
-
-    elif company_archetype == "Other":
-
-        buyer_signal = 5
-
-
-
-    breakdown["buyer_signal_points"] = buyer_signal
-
-    score += buyer_signal
-
-
-
-    # =====================================================
-    # REMOVE FALSE POSITIVES
-    # =====================================================
-
-    if (
-        workload_points == 0
-        and
-        company_signal == 0
-    ):
-
-        score = min(
-            score,
-            40
-        )
+    breakdown["industry_context"] = (
+        "Industry is supporting context only: "
+        + industry
+    )
 
 
 
@@ -356,13 +400,20 @@ def calculate_coi(row):
     # FINAL SCORE
     # =====================================================
 
-    breakdown["raw_coi_score"] = score
-
-
-    breakdown["overall_coi"] = min(
+    final_score = min(
         score,
         100
     )
+
+
+    breakdown["raw_coi_score"] = score
+
+    breakdown["overall_coi"] = final_score
+
+
+    breakdown["signals_found"] = signals_found
+
+    breakdown["missing_signals"] = missing_signals
 
 
 
@@ -370,17 +421,17 @@ def calculate_coi(row):
     # PRIORITY
     # =====================================================
 
-    if score >= 80:
+    if final_score >= 80:
 
         tier = "Tier 1 Strategic"
 
 
-    elif score >= 60:
+    elif final_score >= 60:
 
         tier = "Tier 2 Strong Target"
 
 
-    elif score >= 40:
+    elif final_score >= 40:
 
         tier = "Tier 3 Nurture"
 
@@ -396,35 +447,66 @@ def calculate_coi(row):
 
 
     # =====================================================
+    # EXPLANATION
+    # =====================================================
+
+    if workload_points >= 30:
+
+        why_score = (
+            "Strong Couchbase alignment based on "
+            "operational workload evidence."
+        )
+
+
+    elif workload_points >= 15:
+
+        why_score = (
+            "Potential Couchbase opportunity. "
+            "Validate workload and database challenges."
+        )
+
+
+    else:
+
+        why_score = (
+            "Limited operational workload evidence."
+        )
+
+
+    breakdown["why_score"] = why_score
+
+
+
+    # =====================================================
     # SALES MOTION
     # =====================================================
 
     if tier == "Tier 1 Strategic":
 
         motion = (
-            "Enterprise technical discovery - "
-            "target architecture, engineering, "
-            "and data platform leaders"
+            "Technical discovery with application "
+            "architecture, engineering, and data leaders."
         )
 
 
     elif tier == "Tier 2 Strong Target":
 
         motion = (
-            "Business discovery - validate "
-            "workloads and database challenges"
+            "Discovery conversation focused on "
+            "applications, scalability, and database challenges."
         )
 
 
     else:
 
         motion = (
-            "Continue enrichment before outreach"
+            "Continue enrichment before seller outreach."
         )
 
 
 
     breakdown["sales_motion"] = motion
+
 
 
     return breakdown

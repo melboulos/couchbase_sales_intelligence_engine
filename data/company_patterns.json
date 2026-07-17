@@ -4,209 +4,353 @@
         "netspend": {
             "business_model": "FinTech",
             "industry": "Financial Services",
+            "financial_segment": "Payments",
+
             "workloads": [
                 "Payments",
                 "Customer Accounts",
                 "Transaction Processing",
                 "Fraud Detection"
             ],
-            "score_boost": 25,
-            "reason": "Payments platforms require highly available, low latency operational databases for customer accounts and transactions."
+
+            "workload_profile": "payment_platform",
+
+            "database_intensity": 5,
+            "operational_complexity": 5,
+            "realtime_requirement": 5,
+            "buyer_signal": 5,
+
+            "couchbase_fit_reason":
+                "Payment platforms typically require highly available operational applications supporting customer accounts, transactions, and real-time user experiences."
         },
+
 
         "paytronix": {
             "business_model": "Payments",
             "industry": "Financial Services",
             "financial_segment": "Payments",
+
             "workloads": [
                 "Restaurant Payments",
                 "Customer Loyalty",
                 "Transaction Processing",
                 "Customer Profiles"
             ],
-            "score_boost": 15,
-            "reason": "Restaurant payments platforms require scalable operational databases for transactions and real-time customer experiences."
+
+            "workload_profile": "payment_platform",
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 4,
+            "buyer_signal": 4,
+
+            "couchbase_fit_reason":
+                "Customer loyalty and payment platforms commonly require scalable operational systems supporting transactions and customer experiences."
         },
+
 
         "cleo": {
             "business_model": "Integration Platform",
             "industry": "Technology / SaaS",
+
             "workloads": [
                 "API Platform",
                 "Integration Services",
                 "Operational Applications"
             ],
-            "score_boost": 20,
-            "reason": "Integration platforms commonly require high throughput operational data services."
+
+            "workload_profile": "api_platform",
+
+            "database_intensity": 4,
+            "operational_complexity": 5,
+            "realtime_requirement": 4,
+            "buyer_signal": 5,
+
+            "couchbase_fit_reason":
+                "Integration platforms often require flexible operational data services supporting high throughput APIs and applications."
         },
+
 
         "redox": {
             "business_model": "Healthcare Technology",
             "industry": "Healthcare",
+
             "workloads": [
                 "Healthcare APIs",
-                "Patient Data",
-                "Data Exchange",
-                "Integration Platform"
+                "Patient Data Exchange",
+                "Integration Platform",
+                "Application Data"
             ],
-            "score_boost": 25,
-            "reason": "Healthcare integration platforms require scalable operational data management and API-driven architectures."
+
+            "workload_profile": "api_platform",
+
+            "database_intensity": 5,
+            "operational_complexity": 5,
+            "realtime_requirement": 4,
+            "buyer_signal": 5,
+
+            "couchbase_fit_reason":
+                "Healthcare integration platforms commonly require scalable operational data services supporting APIs and application workflows."
         },
+
 
         "staywell": {
             "business_model": "Healthcare Technology",
             "industry": "Healthcare",
+
             "workloads": [
                 "Patient Engagement",
                 "Healthcare Applications",
                 "Customer Profiles"
             ],
-            "score_boost": 20,
-            "reason": "Healthcare engagement platforms require scalable applications managing patient and member data."
+
+            "workload_profile": "customer_application",
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 3,
+            "buyer_signal": 4,
+
+            "couchbase_fit_reason":
+                "Healthcare engagement platforms often manage customer-facing applications requiring flexible operational data models."
         },
 
-        "mcleod health": {
-            "business_model": "Healthcare Provider",
-            "industry": "Healthcare",
-            "workloads": [
-                "Patient Applications",
-                "Clinical Data",
-                "Healthcare APIs",
-                "Patient Profiles"
-            ],
-            "score_boost": 20,
-            "reason": "Healthcare providers require scalable operational platforms for patient data, clinical applications, and interoperability."
-        },
-
-        "aim specialty health": {
-            "business_model": "Healthcare Technology",
-            "industry": "Healthcare",
-            "workloads": [
-                "Member Profiles",
-                "Healthcare Applications",
-                "Clinical Data",
-                "Healthcare Analytics"
-            ],
-            "score_boost": 20,
-            "reason": "Healthcare technology platforms require scalable data platforms for member applications, analytics, and clinical workflows."
-        },
-
-        "kaia health software": {
-            "business_model": "Healthcare SaaS",
-            "industry": "Healthcare",
-            "workloads": [
-                "Patient Engagement",
-                "Digital Health Applications",
-                "Healthcare Data",
-                "Remote Care Applications"
-            ],
-            "score_boost": 20,
-            "reason": "Digital health SaaS applications require scalable real-time data platforms for patient engagement and healthcare applications."
-        },
 
         "peopleadmin": {
             "business_model": "HR SaaS",
             "industry": "Technology / SaaS",
+
             "workloads": [
                 "Employee Profiles",
                 "Workflow Applications",
                 "Multi Tenant SaaS"
             ],
-            "score_boost": 20,
-            "reason": "HR SaaS platforms commonly operate multi-tenant applications requiring flexible operational databases."
+
+            "workload_profile": "saas_platform",
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 3,
+            "buyer_signal": 5,
+
+            "couchbase_fit_reason":
+                "Multi-tenant SaaS applications commonly require scalable operational databases supporting user and workflow data."
         },
+
 
         "openkey": {
             "business_model": "Travel Technology",
             "industry": "Travel",
+
             "workloads": [
                 "Mobile Applications",
                 "Customer Identity",
                 "Real-Time Access"
             ],
-            "score_boost": 20,
-            "reason": "Mobile-first travel applications require low latency distributed data access."
+
+            "workload_profile": "mobile_application",
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 5,
+            "buyer_signal": 4,
+
+            "couchbase_fit_reason":
+                "Mobile applications with identity and real-time access requirements are common operational database workloads."
         }
+
     },
 
 
     "business_patterns": {
 
+
         "FinTech": {
+
             "keywords": [
                 "payment",
                 "payments",
-                "pay",
-                "bank",
-                "financial",
-                "capital",
-                "credit",
+                "wallet",
+                "merchant",
                 "transaction",
                 "card"
             ],
-            "industry": "Financial Services",
-            "workloads": [
-                "Customer 360",
-                "Transaction Processing",
-                "Fraud Detection"
-            ],
-            "score_boost": 15
+
+            "industry":
+                "Financial Services",
+
+            "workload_profile":
+                "payment_platform"
         },
 
 
         "Healthcare Technology": {
+
             "keywords": [
                 "health",
                 "medical",
                 "patient",
-                "clinical",
                 "care",
                 "pharma"
             ],
-            "industry": "Healthcare",
-            "workloads": [
-                "Patient Profile",
-                "Healthcare Applications",
-                "Identity"
-            ],
-            "score_boost": 15
+
+            "industry":
+                "Healthcare",
+
+            "workload_profile":
+                "customer_application"
         },
 
 
         "SaaS": {
+
             "keywords": [
                 "saas",
-                "software",
                 "software platform",
                 "cloud platform",
                 "application platform",
                 "digital platform"
             ],
-            "industry": "Technology / SaaS",
-            "workloads": [
-                "User Profiles",
-                "Multi Tenant SaaS",
-                "API Applications"
-            ],
-            "score_boost": 5,
-            "reason": "Software platforms and SaaS companies commonly require scalable operational databases for multi-tenant applications."
+
+            "industry":
+                "Technology / SaaS",
+
+            "workload_profile":
+                "saas_platform"
         },
 
 
-        "AI Data Company": {
+        "API Platform": {
+
             "keywords": [
-                "analytics",
-                "machine learning",
-                "artificial",
-                "intelligence"
+                "api",
+                "integration",
+                "developer platform",
+                "data exchange"
             ],
-            "industry": "Technology / SaaS",
+
+            "industry":
+                "Technology / SaaS",
+
+            "workload_profile":
+                "api_platform"
+        }
+
+    },
+
+
+    "workload_profiles": {
+
+
+        "payment_platform": {
+
             "workloads": [
-                "Vector Search",
-                "Operational AI",
-                "Data Applications"
+                "Transaction Processing",
+                "Customer Profiles",
+                "Fraud Detection",
+                "Real-Time Applications"
             ],
-            "score_boost": 15
+
+            "workload_strength": {
+
+                "transaction_processing": 5,
+                "customer_profiles": 5,
+                "real_time": 5,
+                "api": 4
+
+            },
+
+            "database_intensity": 5,
+            "operational_complexity": 5,
+            "realtime_requirement": 5
+        },
+
+
+        "api_platform": {
+
+            "workloads": [
+                "API Services",
+                "Integration Workloads",
+                "Operational Applications"
+            ],
+
+            "workload_strength": {
+
+                "api": 5,
+                "operational_data": 4,
+                "real_time": 4
+
+            },
+
+            "database_intensity": 4,
+            "operational_complexity": 5,
+            "realtime_requirement": 4
+        },
+
+
+        "saas_platform": {
+
+            "workloads": [
+                "User Profiles",
+                "Multi Tenant Applications",
+                "Workflow Applications"
+            ],
+
+            "workload_strength": {
+
+                "customer_profiles": 4,
+                "multi_tenant": 5,
+                "application_data": 4
+
+            },
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 3
+        },
+
+
+        "customer_application": {
+
+            "workloads": [
+                "Customer Profiles",
+                "Application Data",
+                "User Experience"
+            ],
+
+            "workload_strength": {
+
+                "customer_profiles": 4,
+                "application_data": 4,
+                "real_time": 3
+
+            },
+
+            "database_intensity": 3,
+            "operational_complexity": 4,
+            "realtime_requirement": 3
+        },
+
+
+        "mobile_application": {
+
+            "workloads": [
+                "Mobile Applications",
+                "Identity",
+                "Real-Time Access"
+            ],
+
+            "workload_strength": {
+
+                "mobile": 5,
+                "identity": 4,
+                "real_time": 5
+
+            },
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 5
         }
 
     }

@@ -40,6 +40,94 @@ BUSINESS_PATTERNS = PATTERNS.get(
 
 
 # =====================================================
+# APPLY INTELLIGENCE DATA
+# =====================================================
+
+def apply_intelligence(
+    result,
+    data,
+    reason
+):
+
+
+    result["business_model"] = data.get(
+        "business_model",
+        "Unknown"
+    )
+
+
+    result["industry"] = data.get(
+        "industry",
+        "Unknown"
+    )
+
+
+    result["financial_segment"] = data.get(
+        "financial_segment",
+        "Unknown"
+    )
+
+
+    result["company_archetype"] = data.get(
+        "company_archetype",
+        "Unknown"
+    )
+
+
+    result["workloads"] = data.get(
+        "workloads",
+        []
+    )
+
+
+    # New COI intelligence signals
+
+    result["workload_strength"] = data.get(
+        "workload_strength",
+        "Unknown"
+    )
+
+
+    result["database_intensity"] = data.get(
+        "database_intensity",
+        0
+    )
+
+
+    result["operational_complexity"] = data.get(
+        "operational_complexity",
+        0
+    )
+
+
+    result["realtime_requirement"] = data.get(
+        "realtime_requirement",
+        0
+    )
+
+
+    result["couchbase_fit_reason"] = data.get(
+        "couchbase_fit_reason",
+        ""
+    )
+
+
+    # Keep existing compatibility
+
+    result["company_signal_score"] = data.get(
+        "company_signal_score",
+        0
+    )
+
+
+    result["company_signal_reason"] = reason
+
+
+    return result
+
+
+
+# =====================================================
 # COMPANY INTELLIGENCE
 # =====================================================
 
@@ -66,7 +154,19 @@ def analyze_company(row):
 
         "financial_segment": "Unknown",
 
+        "company_archetype": "Unknown",
+
         "workloads": [],
+
+        "workload_strength": "Unknown",
+
+        "database_intensity": 0,
+
+        "operational_complexity": 0,
+
+        "realtime_requirement": 0,
+
+        "couchbase_fit_reason": "",
 
         "company_signal_score": 0,
 
@@ -77,15 +177,8 @@ def analyze_company(row):
 
 
     # =====================================================
-    # KNOWN COMPANY OVERRIDE
-    #
-    # Pass 1:
-    # Exact company match
-    #
-    # Prevents:
-    # Cleo -> McLeod
-    # AI -> AIM
-    # Pay -> unrelated companies
+    # PASS 1
+    # EXACT COMPANY MATCH
     # =====================================================
 
     for company, data in KNOWN_COMPANIES.items():
@@ -96,47 +189,17 @@ def analyze_company(row):
         if account_name == company_key:
 
 
-            result["business_model"] = data.get(
-                "business_model",
-                "Unknown"
+            return apply_intelligence(
+                result,
+                data,
+                "Exact company match"
             )
-
-
-            result["industry"] = data.get(
-                "industry",
-                "Unknown"
-            )
-
-
-            result["workloads"] = data.get(
-                "workloads",
-                []
-            )
-
-
-            result["company_signal_score"] = data.get(
-                "score_boost",
-                0
-            )
-
-
-            result["company_signal_reason"] = data.get(
-                "reason",
-                ""
-            )
-
-
-            return result
 
 
 
     # =====================================================
-    # KNOWN COMPANY OVERRIDE
-    #
-    # Pass 2:
-    # Safe partial matching
-    #
-    # Only allow longer names
+    # PASS 2
+    # SAFE PARTIAL MATCH
     # =====================================================
 
     for company, data in KNOWN_COMPANIES.items():
@@ -150,37 +213,11 @@ def analyze_company(row):
         ):
 
 
-            result["business_model"] = data.get(
-                "business_model",
-                "Unknown"
+            return apply_intelligence(
+                result,
+                data,
+                "Partial company match"
             )
-
-
-            result["industry"] = data.get(
-                "industry",
-                "Unknown"
-            )
-
-
-            result["workloads"] = data.get(
-                "workloads",
-                []
-            )
-
-
-            result["company_signal_score"] = data.get(
-                "score_boost",
-                0
-            )
-
-
-            result["company_signal_reason"] = data.get(
-                "reason",
-                ""
-            )
-
-
-            return result
 
 
 
@@ -203,35 +240,16 @@ def analyze_company(row):
             if keyword in account_name:
 
 
-                result["business_model"] = model
-
-
-                result["industry"] = data.get(
-                    "industry",
-                    "Unknown"
+                return apply_intelligence(
+                    result,
+                    data,
+                    "Business pattern match: " + model
                 )
 
 
-                result["workloads"] = data.get(
-                    "workloads",
-                    []
-                )
 
-
-                result["company_signal_score"] = data.get(
-                    "score_boost",
-                    0
-                )
-
-
-                result["company_signal_reason"] = (
-                    "Matched business pattern: "
-                    + model
-                )
-
-
-                return result
-
-
+    # =====================================================
+    # NO MATCH
+    # =====================================================
 
     return result
