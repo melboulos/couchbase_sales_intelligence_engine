@@ -190,8 +190,7 @@
                 "health",
                 "medical",
                 "patient",
-                "care",
-                "pharma"
+                "care"
             ],
 
             "industry":
@@ -234,6 +233,110 @@
 
             "workload_profile":
                 "api_platform"
+        },
+
+
+        "Utilities": {
+
+            "keywords": [
+                "power",
+                "energy",
+                "electric",
+                "utility",
+                "utilities"
+            ],
+
+            "industry":
+                "Utilities",
+
+            "workload_profile":
+                "utilities_platform"
+        },
+
+
+        "Media/Advertising": {
+
+            "keywords": [
+                "media",
+                "advertising",
+                "communications group",
+                "broadcast"
+            ],
+
+            "industry":
+                "Media & Advertising",
+
+            "workload_profile":
+                "media_platform"
+        },
+
+
+        "Logistics/Transportation": {
+
+            "keywords": [
+                "logistics",
+                "freight",
+                "trucking",
+                "transport",
+                "carrier",
+                "distribution"
+            ],
+
+            "industry":
+                "Logistics & Transportation",
+
+            "workload_profile":
+                "logistics_platform"
+        },
+
+
+        "Retail": {
+
+            "keywords": [
+                "retail",
+                "restaurant",
+                "stores"
+            ],
+
+            "industry":
+                "Retail",
+
+            "workload_profile":
+                "retail_platform"
+        },
+
+
+        "Insurance": {
+
+            "keywords": [
+                "insurance",
+                "mutual",
+                "annuity"
+            ],
+
+            "industry":
+                "Insurance",
+
+            "workload_profile":
+                "insurance_platform"
+        },
+
+
+        "Pharma/Medical Device": {
+
+            "keywords": [
+                "pharma",
+                "pharmaceutical",
+                "pharmacy",
+                "medical device",
+                "medical devices"
+            ],
+
+            "industry":
+                "Pharma & Medical Device",
+
+            "workload_profile":
+                "pharma_device_platform"
         }
 
     },
@@ -351,6 +454,129 @@
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 5
+        },
+
+
+        "utilities_platform": {
+
+            "workloads": [
+                "Grid Operations",
+                "Customer Billing",
+                "Operational Monitoring"
+            ],
+
+            "workload_strength": {
+
+                "operational_data": 3,
+                "customer_profiles": 3
+
+            },
+
+            "database_intensity": 3,
+            "operational_complexity": 3,
+            "realtime_requirement": 2
+        },
+
+
+        "media_platform": {
+
+            "workloads": [
+                "Ad Serving",
+                "Audience Data",
+                "Campaign Management"
+            ],
+
+            "workload_strength": {
+
+                "real_time": 3,
+                "operational_data": 3
+
+            },
+
+            "database_intensity": 3,
+            "operational_complexity": 3,
+            "realtime_requirement": 3
+        },
+
+
+        "logistics_platform": {
+
+            "workloads": [
+                "Shipment Tracking",
+                "Route Optimization",
+                "Fleet Operations"
+            ],
+
+            "workload_strength": {
+
+                "real_time": 3,
+                "operational_data": 4
+
+            },
+
+            "database_intensity": 3,
+            "operational_complexity": 4,
+            "realtime_requirement": 3
+        },
+
+
+        "retail_platform": {
+
+            "workloads": [
+                "Point of Sale",
+                "Inventory Management",
+                "Customer Loyalty"
+            ],
+
+            "workload_strength": {
+
+                "transaction_processing": 4,
+                "customer_profiles": 3
+
+            },
+
+            "database_intensity": 4,
+            "operational_complexity": 3,
+            "realtime_requirement": 3
+        },
+
+
+        "insurance_platform": {
+
+            "workloads": [
+                "Policy Administration",
+                "Claims Processing"
+            ],
+
+            "workload_strength": {
+
+                "operational_data": 2
+
+            },
+
+            "database_intensity": 2,
+            "operational_complexity": 2,
+            "realtime_requirement": 1
+        },
+
+
+        "pharma_device_platform": {
+
+            "workloads": [
+                "Manufacturing Operations",
+                "Supply Chain",
+                "Regulatory Data"
+            ],
+
+            "workload_strength": {
+
+                "operational_data": 2
+
+            },
+
+            "database_intensity": 2,
+            "operational_complexity": 2,
+            "realtime_requirement": 1
         }
 
     }

@@ -17,8 +17,7 @@ from pipeline.scoring_pipeline import score_accounts
 
 from pipeline.llm_validation_pipeline import validate_accounts
 
-from modules.llm_candidate_selector import select_llm_candidate
-from modules.sales_brief_generator import generate_sales_brief
+from modules.deterministic_gate import deterministic_gate
 from modules.opportunity_explainer import generate_opportunity_explanation
 
 from pipeline.intelligence_export_pipeline import export_account_intelligence
@@ -185,55 +184,46 @@ accounts = pd.concat(
 
 # =====================================================
 # LLM CANDIDATE SELECTION
+#
+# Uses the deterministic gate directly, across the full
+# account set, rather than an arbitrary top-N cap. The
+# gate's run_llm decision is based on overall_coi plus
+# database technology / modernization / cloud / negative
+# signal adjustments (see modules/deterministic_gate.py).
 # =====================================================
 
 print(
-    "\nSelecting LLM enrichment candidates..."
+    "\nRunning deterministic gate..."
 )
 
 
-LLM_TEST_LIMIT = 10
-
-
-llm_candidates = (
-    accounts
-    .sort_values(
-        "overall_coi",
-        ascending=False
-    )
-    .head(
-        LLM_TEST_LIMIT
-    )
+gate_results = accounts.apply(
+    deterministic_gate,
+    axis=1
 )
+
+
+gate_results = pd.DataFrame(
+    gate_results.tolist()
+)
+
+
+accounts = pd.concat(
+    [
+        accounts.reset_index(drop=True),
+        gate_results.reset_index(drop=True)
+    ],
+    axis=1
+)
+
+
+llm_candidates = accounts[
+    accounts["run_llm"] == True
+]
 
 
 print(
     f"Selected {len(llm_candidates)} accounts for LLM validation"
-)
-
-
-
-# =====================================================
-# ADD LLM METADATA
-# =====================================================
-
-llm_results = llm_candidates.apply(
-    select_llm_candidate,
-    axis=1
-)
-
-
-llm_results = pd.DataFrame(
-    llm_results.tolist()
-)
-
-
-llm_candidates = pd.concat(
-    [
-        llm_candidates.reset_index(drop=True),
-        llm_results.reset_index(drop=True)
-    ],
-    axis=1
 )
 
 
@@ -254,37 +244,15 @@ llm_accounts = validate_accounts(
 
 
 # =====================================================
-# SALES BRIEFS
-# =====================================================
-
-print(
-    "\nGenerating sales account briefs..."
-)
-
-
-brief_results = llm_accounts.apply(
-    generate_sales_brief,
-    axis=1
-)
-
-
-brief_results = pd.DataFrame(
-    brief_results.tolist()
-)
-
-
-llm_accounts = pd.concat(
-    [
-        llm_accounts.reset_index(drop=True),
-        brief_results.reset_index(drop=True)
-    ],
-    axis=1
-)
-
-
-
-# =====================================================
 # MERGE LLM INTELLIGENCE BACK
+#
+# Column list matches the current sales_intelligence_pipeline.py /
+# llm_prompt_builder.py contract. Old schema fields
+# (llm_opportunity_score, coi_assessment, coi_delta_reason,
+# opportunity_summary, couchbase_trigger, evidence_found,
+# missing_evidence, database_replacement_probability,
+# seller_action, discovery_questions, llm_reasoning) have
+# been retired and removed from this list.
 # =====================================================
 
 print(
@@ -300,29 +268,19 @@ llm_merge_columns = [
 
     "llm_validation",
 
-    "llm_opportunity_score",
+    "why_this_workload_matters",
 
-    "coi_assessment",
+    "engineering_implications",
 
-    "coi_delta_reason",
+    "couchbase_point_of_view",
 
-    "opportunity_summary",
+    "technical_risks_to_validate",
 
-    "couchbase_trigger",
+    "conversation_strategy",
 
-    "evidence_found",
+    "discovery_progression",
 
-    "missing_evidence",
-
-    "database_replacement_probability",
-
-    "technical_risk",
-
-    "seller_action",
-
-    "discovery_questions",
-
-    "llm_reasoning"
+    "missing_information"
 
 ]
 

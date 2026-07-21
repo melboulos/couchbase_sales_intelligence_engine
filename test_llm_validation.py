@@ -11,6 +11,16 @@
 # - token usage
 # - RAW LLM JSON returned
 #
+# NOTE:
+# This test re-runs company_intelligence.analyze_company()
+# and scoring_engine.calculate_coi() live for each test
+# account, rather than trusting the values already sitting
+# in Enterprise_East_Scored.xlsx. That file is a static
+# snapshot from a prior pipeline run and will not reflect
+# any fixes made to enrichment or scoring logic since it
+# was generated. Account identity fields (Account Name,
+# industry raw source data, etc.) still come from the
+# snapshot; workload/COI/tier fields are recomputed fresh.
 # =====================================================
 
 
@@ -19,6 +29,8 @@ import json
 
 
 from modules.sales_intelligence_pipeline import validate_account
+from modules.company_intelligence import analyze_company
+from modules.scoring_engine import calculate_coi
 
 
 # =====================================================
@@ -113,6 +125,29 @@ results = []
 for _, row in test_accounts.iterrows():
 
 
+    row = row.to_dict()
+
+
+    # =================================================
+    # RE-RUN ENRICHMENT + SCORING LIVE
+    #
+    # INPUT_FILE is a static snapshot from a prior run.
+    # Re-running these here ensures we test against
+    # current company_intelligence.py / scoring_engine.py
+    # logic, not stale pre-fix data.
+    # =================================================
+
+    enrichment = analyze_company(row)
+
+    row.update(enrichment)
+
+
+    coi_result = calculate_coi(row)
+
+    row.update(coi_result)
+
+
+
     print()
 
     print(
@@ -138,6 +173,51 @@ for _, row in test_accounts.iterrows():
         "TIER:",
         row.get(
             "priority_tier",
+            ""
+        )
+    )
+
+
+    print(
+        "WORKLOAD PROFILE:",
+        row.get(
+            "workload_profile",
+            ""
+        )
+    )
+
+
+    print(
+        "WORKLOAD STRENGTH:",
+        row.get(
+            "workload_strength",
+            ""
+        )
+    )
+
+
+    print(
+        "DATABASE INTENSITY:",
+        row.get(
+            "database_intensity",
+            ""
+        )
+    )
+
+
+    print(
+        "OPERATIONAL COMPLEXITY:",
+        row.get(
+            "operational_complexity",
+            ""
+        )
+    )
+
+
+    print(
+        "REALTIME REQUIREMENT:",
+        row.get(
+            "realtime_requirement",
             ""
         )
     )
@@ -349,6 +429,46 @@ for _, row in test_accounts.iterrows():
 
                 row.get(
                     "priority_tier",
+                    ""
+                ),
+
+
+            "workload_profile":
+
+                row.get(
+                    "workload_profile",
+                    ""
+                ),
+
+
+            "workload_strength":
+
+                row.get(
+                    "workload_strength",
+                    ""
+                ),
+
+
+            "database_intensity":
+
+                row.get(
+                    "database_intensity",
+                    ""
+                ),
+
+
+            "operational_complexity":
+
+                row.get(
+                    "operational_complexity",
+                    ""
+                ),
+
+
+            "realtime_requirement":
+
+                row.get(
+                    "realtime_requirement",
                     ""
                 ),
 

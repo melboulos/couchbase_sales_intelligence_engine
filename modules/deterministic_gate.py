@@ -24,10 +24,32 @@
 # LLM ONLY receives high-value accounts.
 #
 # =====================================================
+#
+# DESIGN NOTE (updated):
+#
+# gate_score now starts from overall_coi (computed by
+# scoring_engine.py from company_intelligence.py's
+# workload_profile / database_intensity /
+# operational_complexity / realtime_requirement fields),
+# rather than being recomputed from an independent
+# keyword system.
+#
+# This gate then applies +/- adjustments on top of COI
+# for signals COI does NOT already capture:
+#   - existing database technology mentions (Oracle, etc.)
+#   - modernization language
+#   - cloud-native signals
+#   - negative signals (consulting, staff aug, etc.)
+#
+# Qualifying workload evidence is now based on whether
+# company_intelligence.py actually recognized the account
+# (workload_profile is set), not a second independent
+# workload keyword search.
+#
+# =====================================================
 
 
 import re
-
 
 
 # =====================================================
@@ -35,222 +57,68 @@ import re
 # =====================================================
 
 
-LLM_THRESHOLD = 50
-
-
-HIGH_COI_THRESHOLD = 60
-
-MEDIUM_COI_THRESHOLD = 40
-
+LLM_THRESHOLD = 50   # <-- NEEDS RECALIBRATION, see note below
 
 
 LOW_PRIORITY_TIERS = [
-
     "tier 4 monitor"
-
 ]
-
-
-
-# =====================================================
-# WORKLOAD CATEGORIES
-# =====================================================
-
-
-WORKLOAD_CATEGORIES = {
-
-
-    "transaction":
-
-    [
-
-        "transaction",
-
-        "transactional",
-
-        "payments",
-
-        "billing",
-
-        "orders"
-
-    ],
-
-
-    "customer_application":
-
-    [
-
-        "customer facing",
-
-        "customer application",
-
-        "customer platform",
-
-        "customer accounts",
-
-        "customer profile",
-
-        "customer profiles",
-
-        "mobile application",
-
-        "mobile applications",
-
-        "customer identity"
-
-    ],
-
-
-    "real_time":
-
-    [
-
-        "real time",
-
-        "real-time",
-
-        "low latency",
-
-        "real-time access"
-
-    ],
-
-
-    "operational":
-
-    [
-
-        "operational",
-
-        "operational application",
-
-        "operational applications",
-
-        "customer 360",
-
-        "fraud detection"
-
-    ],
-
-
-    "distributed_application":
-
-    [
-
-        "api",
-
-        "microservices",
-
-        "distributed",
-
-        "event driven",
-
-        "streaming",
-
-        "integration platform"
-
-    ]
-
-}
-
 
 
 # =====================================================
 # DATABASE SIGNALS
+#
+# Kept as-is: these are NOT captured anywhere in
+# company_intelligence.py / scoring_engine.py, so they
+# remain genuinely additive signals.
 # =====================================================
 
 
 DATABASE_TECHNOLOGY_SIGNALS = [
-
     "mongodb",
-
     "oracle",
-
     "postgres",
-
     "postgresql",
-
     "mysql",
-
     "sql server",
-
     "dynamodb",
-
     "cassandra"
-
 ]
-
 
 
 DATABASE_MODERNIZATION_SIGNALS = [
-
     "data modernization",
-
     "database modernization",
-
     "database performance",
-
     "database scaling",
-
     "operational data",
-
     "distributed database",
-
     "data store"
-
 ]
-
-
-
-TRANSACTIONAL_DATABASE_SIGNALS = [
-
-    "transactional database",
-
-    "transaction database",
-
-    "application database"
-
-]
-
-
-
-# =====================================================
-# CLOUD SUPPORTING SIGNALS
-# =====================================================
 
 
 CLOUD_SIGNALS = [
-
     "kubernetes",
-
     "container",
-
     "cloud native"
-
 ]
-
 
 
 # =====================================================
 # NEGATIVE SIGNALS
+#
+# Kept as-is: excludes service-business types that COI
+# has no concept of.
 # =====================================================
 
 
 NEGATIVE_SIGNALS = [
-
     "consulting",
-
     "professional services",
-
     "staff augmentation",
-
     "marketing agency",
-
     "training"
-
 ]
-
 
 
 # =====================================================
@@ -259,110 +127,45 @@ NEGATIVE_SIGNALS = [
 
 
 def normalize_text(value):
-
-
     if value is None:
-
         return ""
-
-
     text = str(value).lower()
-
-
-    text = re.sub(
-
-        r"\s+",
-
-        " ",
-
-        text
-
-    )
-
-
+    text = re.sub(r"\s+", " ", text)
     return text.strip()
-
 
 
 # =====================================================
 # COLLECT ACCOUNT TEXT
+#
+# Used only for the remaining independent signals
+# (database technology, modernization, cloud, negative).
 # =====================================================
 
 
 def collect_account_text(row):
-
-
     fields = [
-
         "Account Name",
-
         "Description",
-
         "Industry",
-
         "technologies",
-
         "technology",
-
         "technical_signals",
-
         "business_signals",
-
         "cloud_signals",
-
         "ai_signals",
-
         "notes",
-
         "workloads",
-
-        "workload_profile",
-
-        "database_signal",
-
-        "database_intensity",
-
-        "operational_complexity",
-
-        "realtime_requirement"
-
+        "database_signal"
     ]
-
-
 
     values = []
 
-
-
     for field in fields:
-
-
-        value = row.get(
-
-            field,
-
-            ""
-
-        )
-
-
+        value = row.get(field, "")
         if value:
+            values.append(f"{field}: {value}")
 
-
-            values.append(
-
-                f"{field}: {value}"
-
-            )
-
-
-
-    return normalize_text(
-
-        " ".join(values)
-
-    )
-
+    return normalize_text(" ".join(values))
 
 
 # =====================================================
@@ -371,53 +174,11 @@ def collect_account_text(row):
 
 
 def find_matches(text, signals):
-
-
     matches = []
-
-
     for signal in signals:
-
-
         if signal in text:
-
-
             matches.append(signal)
-
-
     return matches
-
-
-
-# =====================================================
-# WORKLOAD CATEGORY DETECTION
-# =====================================================
-
-
-def detect_workload_categories(text):
-
-
-    categories = []
-
-
-
-    for category, signals in WORKLOAD_CATEGORIES.items():
-
-
-        for signal in signals:
-
-
-            if signal in text:
-
-
-                categories.append(category)
-
-                break
-
-
-
-    return categories
-
 
 
 # =====================================================
@@ -427,445 +188,131 @@ def detect_workload_categories(text):
 
 def deterministic_gate(row):
 
-
-    coi = row.get(
-
-        "overall_coi",
-
-        0
-
-    )
-
-
+    coi = row.get("overall_coi", 0)
 
     try:
-
         coi = float(coi)
-
-
     except:
-
         coi = 0
 
+    tier = normalize_text(row.get("priority_tier", ""))
 
+    workload_profile = row.get("workload_profile", "")
 
-    tier = normalize_text(
-
-        row.get(
-
-            "priority_tier",
-
-            ""
-
-        )
-
-    )
-
-
+    has_workload_evidence = bool(workload_profile)
 
     account_text = collect_account_text(row)
 
-
-
-    workload_categories = detect_workload_categories(
-
-        account_text
-
-    )
-
-
-
     database_technology_matches = find_matches(
-
-        account_text,
-
-        DATABASE_TECHNOLOGY_SIGNALS
-
+        account_text, DATABASE_TECHNOLOGY_SIGNALS
     )
-
-
 
     database_modernization_matches = find_matches(
-
-        account_text,
-
-        DATABASE_MODERNIZATION_SIGNALS
-
+        account_text, DATABASE_MODERNIZATION_SIGNALS
     )
-
-
-
-    transactional_database_matches = find_matches(
-
-        account_text,
-
-        TRANSACTIONAL_DATABASE_SIGNALS
-
-    )
-
-
 
     cloud_matches = find_matches(
-
-        account_text,
-
-        CLOUD_SIGNALS
-
+        account_text, CLOUD_SIGNALS
     )
-
-
 
     negative_matches = find_matches(
-
-        account_text,
-
-        NEGATIVE_SIGNALS
-
+        account_text, NEGATIVE_SIGNALS
     )
-
-
-
-    has_workload_evidence = (
-
-        len(workload_categories) > 0
-
-    )
-
-
 
     has_database_evidence = (
-
         len(database_technology_matches)
-
-        +
-
-        len(database_modernization_matches)
-
-        +
-
-        len(transactional_database_matches)
-
-        >
-
-        0
-
+        + len(database_modernization_matches)
+        > 0
     )
 
+    # =================================================
+    # GATE SCORE
+    #
+    # Starts from COI (the same signal driving tier),
+    # then applies additive adjustments for evidence
+    # COI does not already capture.
+    # =================================================
 
-
-    score = 0
-
+    score = coi
 
     reasons = []
 
+    if coi >= 60:
+        reasons.append("High COI")
+    elif coi >= 40:
+        reasons.append("Medium COI")
 
-
-    # COI
-
-    if coi >= HIGH_COI_THRESHOLD:
-
-
-        score += 15
-
-
-        reasons.append(
-
-            "High COI"
-
-        )
-
-
-    elif coi >= MEDIUM_COI_THRESHOLD:
-
-
-        score += 5
-
-
-        reasons.append(
-
-            "Medium COI"
-
-        )
-
-
-
-    # WORKLOAD
-
-    if workload_categories:
-
-
-        workload_score = min(
-
-            len(workload_categories) * 15,
-
-            45
-
-        )
-
-
-        score += workload_score
-
-
-        reasons.append(
-
-            "Operational workload"
-
-        )
-
-
-
-    # DATABASE TECHNOLOGY
+    if has_workload_evidence:
+        reasons.append("Workload profile: " + workload_profile)
 
     if database_technology_matches:
-
-
         score += 15
-
-
-        reasons.append(
-
-            "Database technology signal"
-
-        )
-
-
-
-    # DATABASE MODERNIZATION
+        reasons.append("Database technology signal")
 
     if database_modernization_matches:
-
-
         score += 10
-
-
-        reasons.append(
-
-            "Database modernization signal"
-
-        )
-
-
-
-    # TRANSACTIONAL DATABASE
-
-    if transactional_database_matches:
-
-
-        score += 10
-
-
-        reasons.append(
-
-            "Transactional database signal"
-
-        )
-
-
-
-    # CLOUD
+        reasons.append("Database modernization signal")
 
     if cloud_matches:
-
-
         score += 5
-
-
-        reasons.append(
-
-            "Cloud native signal"
-
-        )
-
-
-
-    # NEGATIVE
+        reasons.append("Cloud native signal")
 
     if negative_matches:
-
-
         score -= 30
-
-
-        reasons.append(
-
-            "Negative signal"
-
-        )
-
-
+        reasons.append("Negative signal")
 
     debug = {
-
-
-        "debug_text_length":
-
-            len(account_text),
-
-
-        "debug_text_sample":
-
-            account_text[:500],
-
-
-        "debug_workload_categories":
-
-            workload_categories,
-
-
-        "debug_database_technology_matches":
-
-            database_technology_matches,
-
-
-        "debug_database_modernization_matches":
-
-            database_modernization_matches,
-
-
-        "debug_transactional_database_matches":
-
-            transactional_database_matches,
-
-
-        "debug_cloud_matches":
-
-            cloud_matches,
-
-
-        "debug_negative_matches":
-
-            negative_matches,
-
-
-        "has_workload_evidence":
-
-            has_workload_evidence,
-
-
-        "has_database_evidence":
-
-            has_database_evidence
-
+        "debug_text_length": len(account_text),
+        "debug_text_sample": account_text[:500],
+        "debug_database_technology_matches": database_technology_matches,
+        "debug_database_modernization_matches": database_modernization_matches,
+        "debug_cloud_matches": cloud_matches,
+        "debug_negative_matches": negative_matches,
+        "has_workload_evidence": has_workload_evidence,
+        "has_database_evidence": has_database_evidence
     }
-
-
 
     # HARD STOP
 
     if tier in LOW_PRIORITY_TIERS:
-
-
         return {
-
-
             "run_llm": False,
-
-
             "llm_stage": "SKIP",
-
-
             "gate_decision": "SKIP",
-
-
             "gate_reason": "Low priority tier",
-
-
             "gate_score": score,
-
-
             "coi_score": coi,
-
-
             "signals_found": reasons,
-
-
             **debug
-
         }
-
-
 
     # LLM PATH
 
-    if (
-
-        has_workload_evidence
-
-        and
-
-        score >= LLM_THRESHOLD
-
-    ):
-
-
+    if has_workload_evidence and score >= LLM_THRESHOLD:
         return {
-
-
             "run_llm": True,
-
-
             "llm_stage": "INTELLIGENCE",
-
-
             "gate_decision": "LLM",
-
-
             "gate_reason": "; ".join(reasons),
-
-
             "gate_score": score,
-
-
             "coi_score": coi,
-
-
             "signals_found": reasons,
-
-
             **debug
-
         }
-
-
 
     # SKIP
 
     return {
-
-
         "run_llm": False,
-
-
         "llm_stage": "SKIP",
-
-
         "gate_decision": "SKIP",
-
-
-        "gate_reason":
-
-            (
-
-                "Insufficient opportunity score"
-
-                if has_workload_evidence
-
-                else
-
-                "No workload evidence"
-
-            ),
-
-
+        "gate_reason": (
+            "Insufficient opportunity score"
+            if has_workload_evidence
+            else "No workload evidence"
+        ),
         "gate_score": score,
-
-
         "coi_score": coi,
-
-
         "signals_found": reasons,
-
-
         **debug
-
     }

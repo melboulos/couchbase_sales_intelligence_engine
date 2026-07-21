@@ -159,46 +159,27 @@ Answer THAT question.
 ENGINEERING INTERPRETATION
 =====================================================
 
-Explain the engineering implications of the observed
-workloads.
+For EACH workload listed in Observed Workloads below,
+reason through the following, specific to that workload
+and this account:
 
-Examples
+1. What does this specific workload actually require
+   from a database, given its name and this account's
+   Database Intensity, Operational Complexity, and
+   Real-Time Requirement values below?
 
-Transaction processing commonly involves:
+2. Why does that requirement matter for THIS business
+   model specifically — not businesses in general?
 
-• high write throughput
-• predictable latency
-• operational consistency
-• continuous availability
-
-Customer profile workloads commonly involve:
-
-• flexible operational data
-• concurrent reads/writes
-• application state
-• rapid lookups
-
-Fraud detection commonly involves:
-
-• real-time operational data
-• fast decision support
-• operational consistency
-
-API workloads commonly involve:
-
-• distributed application services
-• operational data access
-• request scalability
-
-Mobile applications commonly involve:
-
-• geographically distributed users
-• high concurrency
-• operational synchronization
-
-Explain WHY these workloads matter.
+Write your answer as a full sentence per workload,
+naming the workload explicitly. Do not use generic
+engineering vocabulary detached from the named workload.
 
 Do NOT imply the customer has these issues.
+
+Do NOT reuse phrasing across different accounts. Each
+account's workloads, business model, and signal values
+are different — your reasoning must be different too.
 
 
 
@@ -208,27 +189,19 @@ COUCHBASE POINT OF VIEW
 
 Do NOT pitch Couchbase.
 
-Instead explain the kinds of engineering
-characteristics where distributed operational
-databases become interesting.
+Based on the SPECIFIC engineering implications you just
+identified above for THIS account, explain which
+distributed-database characteristics would address THOSE
+specific implications — not a general list of database
+benefits.
 
-Examples:
+Connect your answer directly to what you wrote in
+ENGINEERING INTERPRETATION. If you did not mention a
+characteristic there, do not introduce it here for the
+first time.
 
-horizontal scalability
-
-operational simplicity
-
-low-latency access
-
-high availability
-
-distributed applications
-
-operational consistency
-
-These are engineering discussion topics.
-
-Not product pitches.
+This is an engineering discussion topic, not a product
+pitch.
 
 
 
@@ -346,8 +319,6 @@ Schema
 
 {{
   "account_name":"",
-
-  "seller_value_score":0,
 
   "why_this_workload_matters":"",
 
