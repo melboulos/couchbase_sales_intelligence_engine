@@ -1,37 +1,27 @@
 import pandas as pd
 
-
 from pipeline.loader import load_accounts
-
 from pipeline.enrichment_pipeline import (
     normalize_accounts,
     classify_industries,
     enrich_company_intelligence
 )
-
 from pipeline.technology_pipeline import enrich_technology
 from pipeline.account_enrichment_pipeline import enrich_accounts
 from pipeline.account_pipeline import enrich_account_intelligence
 from pipeline.company_archetype_pipeline import enrich_company_archetypes
 from pipeline.scoring_pipeline import score_accounts
-
 from pipeline.llm_validation_pipeline import validate_accounts
-
 from modules.deterministic_gate import deterministic_gate
 from modules.opportunity_explainer import generate_opportunity_explanation
-
 from pipeline.intelligence_export_pipeline import export_account_intelligence
-
 
 
 print("Starting Couchbase Sales Intelligence Engine")
 print("-------------------------------------------")
 
-
 INPUT_FILE = "input/Enterprise_East_Account_List.xlsx"
-
 OUTPUT_FILE = "output/Enterprise_East_Scored.xlsx"
-
 
 
 # =====================================================
@@ -39,17 +29,11 @@ OUTPUT_FILE = "output/Enterprise_East_Scored.xlsx"
 # =====================================================
 
 accounts = load_accounts(INPUT_FILE)
-
-print(
-    f"Loaded {len(accounts)} accounts"
-)
-
+print(f"Loaded {len(accounts)} accounts")
 
 print("\nColumns found:")
-
 for col in accounts.columns:
     print(f"- {col}")
-
 
 
 # =====================================================
@@ -57,9 +41,7 @@ for col in accounts.columns:
 # =====================================================
 
 print("\nRunning normalization...")
-
 accounts = normalize_accounts(accounts)
-
 
 
 # =====================================================
@@ -67,9 +49,7 @@ accounts = normalize_accounts(accounts)
 # =====================================================
 
 print("\nRunning industry classification...")
-
 accounts = classify_industries(accounts)
-
 
 
 # =====================================================
@@ -77,9 +57,7 @@ accounts = classify_industries(accounts)
 # =====================================================
 
 print("\nRunning company intelligence...")
-
 accounts = enrich_company_intelligence(accounts)
-
 
 
 # =====================================================
@@ -87,9 +65,7 @@ accounts = enrich_company_intelligence(accounts)
 # =====================================================
 
 print("\nRunning technology enrichment...")
-
 accounts = enrich_technology(accounts)
-
 
 
 # =====================================================
@@ -97,9 +73,7 @@ accounts = enrich_technology(accounts)
 # =====================================================
 
 print("\nRunning account intelligence...")
-
 accounts = enrich_account_intelligence(accounts)
-
 
 
 # =====================================================
@@ -107,70 +81,43 @@ accounts = enrich_account_intelligence(accounts)
 # =====================================================
 
 print("\nRunning account enrichment...")
-
 accounts = enrich_accounts(accounts)
-
 
 
 # =====================================================
 # CLEAN DUPLICATES
 # =====================================================
 
-accounts = accounts.loc[
-    :,
-    ~accounts.columns.duplicated()
-]
-
-
-print(
-    "\nDuplicate columns cleaned"
-)
-
+accounts = accounts.loc[:, ~accounts.columns.duplicated()]
+print("\nDuplicate columns cleaned")
 
 
 # =====================================================
 # COMPANY ARCHETYPE
 # =====================================================
 
-print(
-    "\nClassifying company archetypes..."
-)
-
+print("\nClassifying company archetypes...")
 accounts = enrich_company_archetypes(accounts)
-
 
 
 # =====================================================
 # SCORE
 # =====================================================
 
-print(
-    "\nCalculating Couchbase Opportunity Index..."
-)
-
+print("\nCalculating Couchbase Opportunity Index...")
 accounts = score_accounts(accounts)
-
 
 
 # =====================================================
 # OPPORTUNITY EXPLANATION
 # =====================================================
 
-print(
-    "\nGenerating opportunity explanations..."
-)
-
+print("\nGenerating opportunity explanations...")
 
 opportunity_results = accounts.apply(
-    generate_opportunity_explanation,
-    axis=1
+    generate_opportunity_explanation, axis=1
 )
-
-
-opportunity_results = pd.DataFrame(
-    opportunity_results.tolist()
-)
-
+opportunity_results = pd.DataFrame(opportunity_results.tolist())
 
 accounts = pd.concat(
     [
@@ -179,7 +126,6 @@ accounts = pd.concat(
     ],
     axis=1
 )
-
 
 
 # =====================================================
@@ -192,21 +138,10 @@ accounts = pd.concat(
 # signal adjustments (see modules/deterministic_gate.py).
 # =====================================================
 
-print(
-    "\nRunning deterministic gate..."
-)
+print("\nRunning deterministic gate...")
 
-
-gate_results = accounts.apply(
-    deterministic_gate,
-    axis=1
-)
-
-
-gate_results = pd.DataFrame(
-    gate_results.tolist()
-)
-
+gate_results = accounts.apply(deterministic_gate, axis=1)
+gate_results = pd.DataFrame(gate_results.tolist())
 
 accounts = pd.concat(
     [
@@ -216,161 +151,105 @@ accounts = pd.concat(
     axis=1
 )
 
+llm_candidates = accounts[accounts["run_llm"] == True]
 
-llm_candidates = accounts[
-    accounts["run_llm"] == True
-]
-
-
-print(
-    f"Selected {len(llm_candidates)} accounts for LLM validation"
-)
-
+print(f"Selected {len(llm_candidates)} accounts for LLM validation")
 
 
 # =====================================================
 # LLM VALIDATION
 # =====================================================
 
-print(
-    "\nRunning LLM validation..."
-)
-
-
-llm_accounts = validate_accounts(
-    llm_candidates
-)
-
+print("\nRunning LLM validation...")
+llm_accounts = validate_accounts(llm_candidates)
 
 
 # =====================================================
 # MERGE LLM INTELLIGENCE BACK
+#
+# Only merge rows that passed validation. Accounts where
+# llm_validation == False (e.g. hallucination detected,
+# forbidden evidence language, empty required content)
+# should not have their content flow into the dashboard
+# or scored output — they fall back to no LLM data, the
+# same as a gate-skipped account, rather than displaying
+# unvalidated content as if it were trustworthy.
 #
 # Column list matches the current sales_intelligence_pipeline.py /
 # llm_prompt_builder.py contract. Old schema fields
 # (llm_opportunity_score, coi_assessment, coi_delta_reason,
 # opportunity_summary, couchbase_trigger, evidence_found,
 # missing_evidence, database_replacement_probability,
-# seller_action, discovery_questions, llm_reasoning) have
+# seller_action, discovery_questions, llm_reasoning,
+# conversation_strategy, why_this_workload_matters) have
 # been retired and removed from this list.
 # =====================================================
 
+print("\nMerging LLM intelligence back into full dataset...")
+
+validated_llm_accounts = llm_accounts[llm_accounts["llm_validation"] == True]
+
 print(
-    "\nMerging LLM intelligence back into full dataset..."
+    f"Validated: {len(validated_llm_accounts)} / {len(llm_accounts)} "
+    f"LLM-processed accounts"
 )
 
-
 llm_merge_columns = [
-
     "Account Name",
-
     "llm_run_id",
-
     "llm_validation",
-
-    "why_this_workload_matters",
-
     "engineering_implications",
-
     "couchbase_point_of_view",
-
     "technical_risks_to_validate",
-
-    "conversation_strategy",
-
     "discovery_progression",
-
     "missing_information"
-
 ]
-
 
 llm_merge_columns = [
-    c
-    for c in llm_merge_columns
-    if c in llm_accounts.columns
+    c for c in llm_merge_columns
+    if c in validated_llm_accounts.columns
 ]
 
-
-print(
-    "\nLLM merge columns:"
-)
-
+print("\nLLM merge columns:")
 for c in llm_merge_columns:
-    print(
-        "-",
-        c
-    )
-
-
+    print("-", c)
 
 accounts = accounts.merge(
-    llm_accounts[
-        llm_merge_columns
-    ],
+    validated_llm_accounts[llm_merge_columns],
     on="Account Name",
     how="left"
 )
-
 
 
 # =====================================================
 # FINAL CLEAN
 # =====================================================
 
-accounts = accounts.loc[
-    :,
-    ~accounts.columns.duplicated()
-]
-
+accounts = accounts.loc[:, ~accounts.columns.duplicated()]
 
 
 # =====================================================
 # EXPORT EXCEL
 # =====================================================
 
-accounts.to_excel(
-    OUTPUT_FILE,
-    index=False
-)
-
+accounts.to_excel(OUTPUT_FILE, index=False)
 
 
 # =====================================================
 # EXPORT LLM TEST OUTPUT
 # =====================================================
 
-llm_accounts.to_excel(
-    "output/LLM_Validated_Accounts.xlsx",
-    index=False
-)
-
+llm_accounts.to_excel("output/LLM_Validated_Accounts.xlsx", index=False)
 
 
 # =====================================================
 # EXPORT STREAMLIT JSON
 # =====================================================
 
-export_account_intelligence(
-    accounts
-)
+export_account_intelligence(accounts)
 
 
-
-print(
-    "\n-------------------------------------------"
-)
-
-print(
-    "Completed"
-)
-
-
-print(
-    f"Accounts processed: {len(accounts)}"
-)
-
-
-print(
-    f"Full output: {OUTPUT_FILE}"
-)
+print("\n-------------------------------------------")
+print("Completed")
+print(f"Accounts processed: {len(accounts)}")
+print(f"Full output: {OUTPUT_FILE}")

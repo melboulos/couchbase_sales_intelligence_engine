@@ -93,36 +93,11 @@ FACT PROTECTION RULES
 
 Use ONLY information supplied below.
 
-Never invent:
-
-- database vendor
-- database architecture
-- technology stack
-- migrations
-- modernization initiatives
-- replacement projects
-- performance problems
-- operational issues
-- scalability issues
-- customer pain
-
-Never state:
-
-Customer uses Oracle.
-
-Customer uses MongoDB.
-
-Customer uses PostgreSQL.
-
-Customer uses MySQL.
-
-Customer is migrating.
-
-Customer will replace a database.
-
-Customer has scalability issues.
-
-Customer has latency problems.
+Never invent or state as fact: database vendor,
+architecture, technology stack, migrations,
+modernization initiatives, replacement projects,
+performance problems, operational issues, scalability
+issues, or customer pain — even if it seems likely.
 
 Instead use language like:
 
@@ -235,24 +210,6 @@ Avoid generic discovery.
 
 
 =====================================================
-CONVERSATION STRATEGY
-=====================================================
-
-Teach the seller how to think.
-
-Explain:
-
-Why this workload deserves discussion.
-
-What engineering topics naturally follow.
-
-What architectural questions should be explored.
-
-What NOT to assume.
-
-
-
-=====================================================
 ACCOUNT DATA
 =====================================================
 
@@ -320,8 +277,6 @@ Schema
 {{
   "account_name":"",
 
-  "why_this_workload_matters":"",
-
   "engineering_implications":[
   ],
 
@@ -329,8 +284,6 @@ Schema
 
   "technical_risks_to_validate":[
   ],
-
-  "conversation_strategy":"",
 
   "discovery_progression":[
       {{

@@ -31,11 +31,9 @@ import datetime
 
 REQUIRED_FIELDS = [
     "account_name",
-    "why_this_workload_matters",
     "engineering_implications",
     "couchbase_point_of_view",
     "technical_risks_to_validate",
-    "conversation_strategy",
     "discovery_progression",
     "missing_information"
 ]
@@ -44,6 +42,16 @@ LIST_FIELDS = [
     "engineering_implications",
     "technical_risks_to_validate",
     "missing_information"
+]
+
+# Fields whose CONTENT must be non-empty, not just present.
+# Guards against the field existing as "" or [] and silently
+# passing validate_required_fields, which only checks that
+# the key exists.
+NON_EMPTY_FIELDS = [
+    "engineering_implications",
+    "couchbase_point_of_view",
+    "discovery_progression"
 ]
 
 
@@ -102,6 +110,23 @@ def validate_required_fields(result):
 
 
 # =====================================================
+# NON-EMPTY CONTENT VALIDATION
+#
+# A field can be present but empty ("" or []), which
+# validate_required_fields alone will not catch.
+# =====================================================
+
+def validate_non_empty_fields(result):
+    empty = [
+        field
+        for field in NON_EMPTY_FIELDS
+        if not result.get(field)
+    ]
+    if empty:
+        raise ValueError(f"Empty required content: {empty}")
+
+
+# =====================================================
 # LIST VALIDATION
 # =====================================================
 
@@ -151,6 +176,13 @@ def validate_account_identity(result, account_name):
 
 # =====================================================
 # TECHNICAL QUALITY VALIDATION
+#
+# "revenue" removed: it's a common word that shows up in
+# legitimate technical/business-justification sentences
+# (e.g. "essential for driving revenue growth") without
+# actually smuggling in company-attractiveness reasoning.
+# The remaining terms are distinctive phrases that reliably
+# indicate company-attractiveness framing when present.
 # =====================================================
 
 def validate_evidence_quality(result):
@@ -160,7 +192,6 @@ def validate_evidence_quality(result):
         "market leader",
         "industry leader",
         "company size",
-        "revenue",
         "cloud adoption",
         "ai initiative",
         "growth opportunity"
@@ -218,6 +249,7 @@ def validate_llm_value(result):
 
 def validate_llm_output(result, raw_text, account_name):
     validate_required_fields(result)
+    validate_non_empty_fields(result)
 
     combined_text = normalize_text(
         json.dumps(result) + str(raw_text)
