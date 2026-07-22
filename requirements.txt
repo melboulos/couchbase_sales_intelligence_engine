@@ -1,3 +1,4 @@
-pandas
-openpyxl
-xlsxwriter
+pandas==3.0.3
+openpyxl==3.1.5
+boto3==1.43.48
+streamlit==1.59.2
