@@ -20,6 +20,16 @@
 # The LLM provides the technical point of view
 # of an experienced Couchbase Solutions Engineer.
 #
+# It ALSO independently scores the account using the
+# same rubric as the deterministic engine — but WITHOUT
+# ever seeing the deterministic engine's own COI, Tier,
+# or Database Intensity / Operational Complexity /
+# Real-Time Requirement values. This is deliberate: the
+# LLM's score is meant to be a genuinely independent
+# second opinion, used to find gaps in the deterministic
+# pattern-matching (data/company_patterns.json), not a
+# recomputation of the same numbers it was shown.
+#
 # =====================================================
 
 
@@ -42,7 +52,8 @@ DO NOT summarize the account.
 The seller already has the account summary.
 
 Your job is to teach the seller WHY the observed workloads
-matter from an operational database perspective.
+matter from an operational database perspective, AND to
+independently score the account's technical fit.
 
 
 =====================================================
@@ -91,13 +102,16 @@ say so clearly.
 FACT PROTECTION RULES
 =====================================================
 
-Use ONLY information supplied below.
+Use ONLY information supplied below, plus your own
+general knowledge of this company and of this type of
+workload if you recognize them.
 
-Never invent or state as fact: database vendor,
-architecture, technology stack, migrations,
-modernization initiatives, replacement projects,
-performance problems, operational issues, scalability
-issues, or customer pain — even if it seems likely.
+Never invent or state as fact: this customer's specific
+database vendor, architecture, technology stack,
+migrations, modernization initiatives, replacement
+projects, performance problems, operational issues,
+scalability issues, or customer pain — even if it seems
+likely.
 
 Instead use language like:
 
@@ -140,8 +154,7 @@ and this account:
 
 1. What does this specific workload actually require
    from a database, given its name and this account's
-   Database Intensity, Operational Complexity, and
-   Real-Time Requirement values below?
+   business model?
 
 2. Why does that requirement matter for THIS business
    model specifically — not businesses in general?
@@ -210,6 +223,51 @@ Avoid generic discovery.
 
 
 =====================================================
+INDEPENDENT SCORE
+=====================================================
+
+Score this account's technical fit for Couchbase
+YOURSELF, using ONLY:
+
+- The account's Business Model and Industry below
+- The Observed Workloads listed below
+- Your own general knowledge of this company (if you
+  recognize it) and of this type of business/workload
+  in general
+
+You have NOT been given this account's Couchbase
+Opportunity Index, Priority Tier, or any pre-computed
+Database Intensity / Operational Complexity / Real-Time
+Requirement values. This is intentional. Do not ask for
+them. Score independently, from your own reasoning.
+
+Score across three dimensions:
+
+1. Workload / Operational Database Fit (0-40)
+   How central is a high-volume, high-frequency
+   operational database workload to this business
+   model's core function?
+
+2. Real-Time Requirement (0-30)
+   How much does this business model's core value
+   depend on low-latency, real-time data access?
+
+3. Technical/Architectural Complexity (0-30)
+   How many concurrent, interdependent operational
+   systems or data flows does this business model
+   typically run?
+
+For each dimension, write one sentence explaining your
+reasoning BEFORE assigning the number. Then sum the
+three for a total out of 100.
+
+Do NOT try to guess or match what a deterministic
+scoring system might produce. Score based on your own
+independent judgment only.
+
+
+
+=====================================================
 ACCOUNT DATA
 =====================================================
 
@@ -222,29 +280,11 @@ Industry:
 Business Model:
 {row.get("business_model","Unknown")}
 
-COI:
-{row.get("overall_coi",0)}
-
-Priority Tier:
-{row.get("priority_tier","Unknown")}
-
 Observed Workloads:
 {row.get("workloads","Unknown")}
 
-Workload Profile:
-{row.get("workload_profile","Unknown")}
-
 Database Signal:
 {row.get("database_signal","Unknown")}
-
-Database Intensity:
-{row.get("database_intensity","Unknown")}
-
-Operational Complexity:
-{row.get("operational_complexity","Unknown")}
-
-Real-Time Requirement:
-{row.get("realtime_requirement","Unknown")}
 
 Cloud Signal:
 {row.get("cloud_signal","Unknown")}
@@ -268,7 +308,7 @@ Return ONLY valid JSON.
 
 No markdown.
 
-No explanation.
+No explanation outside the JSON.
 
 
 
@@ -294,7 +334,17 @@ Schema
   ],
 
   "missing_information":[
-  ]
+  ],
+
+  "llm_workload_score":0,
+
+  "llm_realtime_score":0,
+
+  "llm_complexity_score":0,
+
+  "llm_total_score":0,
+
+  "llm_score_reasoning":""
 }}
 
 """

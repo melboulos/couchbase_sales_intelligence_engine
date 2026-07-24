@@ -11,12 +11,19 @@
 #
 # Purpose:
 #
-# LLM does NOT qualify accounts.
+# LLM does NOT qualify accounts via the deterministic
+# pipeline's COI/Tier — those remain fully separate.
 #
 # LLM creates:
 # - seller value hypothesis
 # - Couchbase conversation angle
 # - technical discovery strategy
+# - its OWN independent score (llm_total_score), derived
+#   without ever seeing COI/Tier/Database Intensity/
+#   Operational Complexity/Real-Time Requirement — used
+#   to compare against COI and find gaps in
+#   company_patterns.json, not to override or blend with
+#   the deterministic score.
 #
 # =====================================================
 
@@ -35,7 +42,12 @@ REQUIRED_FIELDS = [
     "couchbase_point_of_view",
     "technical_risks_to_validate",
     "discovery_progression",
-    "missing_information"
+    "missing_information",
+    "llm_workload_score",
+    "llm_realtime_score",
+    "llm_complexity_score",
+    "llm_total_score",
+    "llm_score_reasoning"
 ]
 
 LIST_FIELDS = [
@@ -51,8 +63,17 @@ LIST_FIELDS = [
 NON_EMPTY_FIELDS = [
     "engineering_implications",
     "couchbase_point_of_view",
-    "discovery_progression"
+    "discovery_progression",
+    "llm_score_reasoning"
 ]
+
+# Sub-score fields and their valid ranges, per the rubric
+# in llm_prompt_builder.py's INDEPENDENT SCORE section.
+SCORE_RANGES = {
+    "llm_workload_score": (0, 40),
+    "llm_realtime_score": (0, 30),
+    "llm_complexity_score": (0, 30)
+}
 
 
 # =====================================================
@@ -127,6 +148,49 @@ def validate_non_empty_fields(result):
 
 
 # =====================================================
+# INDEPENDENT SCORE VALIDATION
+#
+# Checks each sub-score is a number within its rubric
+# range, AND that they actually sum to llm_total_score —
+# catching a model that returns internally inconsistent
+# numbers (e.g. sub-scores that don't add up), not just
+# fields that are merely present.
+# =====================================================
+
+def validate_independent_score(result):
+    violations = []
+
+    for field, (low, high) in SCORE_RANGES.items():
+        value = result.get(field)
+
+        if not isinstance(value, (int, float)):
+            violations.append(f"{field} is not numeric: {value!r}")
+            continue
+
+        if value < low or value > high:
+            violations.append(f"{field} out of range [{low}-{high}]: {value}")
+
+    if violations:
+        raise ValueError(f"Independent score validation failed: {violations}")
+
+    workload = result.get("llm_workload_score", 0)
+    realtime = result.get("llm_realtime_score", 0)
+    complexity = result.get("llm_complexity_score", 0)
+    total = result.get("llm_total_score", 0)
+
+    expected_total = workload + realtime + complexity
+
+    if not isinstance(total, (int, float)):
+        raise ValueError(f"llm_total_score is not numeric: {total!r}")
+
+    if abs(total - expected_total) > 0.5:
+        raise ValueError(
+            f"llm_total_score ({total}) does not match sum of sub-scores "
+            f"({expected_total})"
+        )
+
+
+# =====================================================
 # LIST VALIDATION
 # =====================================================
 
@@ -176,13 +240,6 @@ def validate_account_identity(result, account_name):
 
 # =====================================================
 # TECHNICAL QUALITY VALIDATION
-#
-# "revenue" removed: it's a common word that shows up in
-# legitimate technical/business-justification sentences
-# (e.g. "essential for driving revenue growth") without
-# actually smuggling in company-attractiveness reasoning.
-# The remaining terms are distinctive phrases that reliably
-# indicate company-attractiveness framing when present.
 # =====================================================
 
 def validate_evidence_quality(result):
@@ -250,6 +307,7 @@ def validate_llm_value(result):
 def validate_llm_output(result, raw_text, account_name):
     validate_required_fields(result)
     validate_non_empty_fields(result)
+    validate_independent_score(result)
 
     combined_text = normalize_text(
         json.dumps(result) + str(raw_text)

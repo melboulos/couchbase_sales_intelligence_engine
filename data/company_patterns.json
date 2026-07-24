@@ -157,6 +157,569 @@
 
             "couchbase_fit_reason":
                 "Mobile applications with identity and real-time access requirements are common operational database workloads."
+        },
+
+
+        "bradesco": {
+            "business_model": "Banking",
+            "industry": "Financial Services",
+
+            "workloads": [
+                "Core Banking",
+                "Transaction Processing",
+                "Customer Accounts"
+            ],
+
+            "workload_profile": "payment_platform",
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 3,
+            "buyer_signal": 4
+        },
+
+
+        "btg pactual": {
+            "business_model": "Banking",
+            "industry": "Financial Services",
+
+            "workloads": [
+                "Core Banking",
+                "Transaction Processing",
+                "Customer Accounts"
+            ],
+
+            "workload_profile": "payment_platform",
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 3,
+            "buyer_signal": 4
+        },
+
+
+        "state street bank": {
+            "business_model": "Banking",
+            "industry": "Financial Services",
+
+            "workloads": [
+                "Core Banking",
+                "Custodial Services",
+                "Transaction Processing"
+            ],
+
+            "workload_profile": "payment_platform",
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 3,
+            "buyer_signal": 4
+        },
+
+
+        "australia and new zealand banking group": {
+            "business_model": "Banking",
+            "industry": "Financial Services",
+
+            "workloads": [
+                "Core Banking",
+                "Transaction Processing",
+                "Customer Accounts"
+            ],
+
+            "workload_profile": "payment_platform",
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 3,
+            "buyer_signal": 4
+        },
+
+
+        "american airlines": {
+            "business_model": "Airline",
+            "industry": "Travel",
+
+            "workloads": [
+                "Seat Inventory",
+                "Dynamic Pricing",
+                "Booking Systems"
+            ],
+
+            "workload_profile": "mobile_application",
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 5,
+            "buyer_signal": 5
+        },
+
+
+        "united airlines": {
+            "business_model": "Airline",
+            "industry": "Travel",
+
+            "workloads": [
+                "Seat Inventory",
+                "Dynamic Pricing",
+                "Booking Systems"
+            ],
+
+            "workload_profile": "mobile_application",
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 5,
+            "buyer_signal": 5
+        },
+
+
+        "royal caribbean cruises": {
+            "business_model": "Hospitality/Cruise",
+            "industry": "Travel",
+
+            "workloads": [
+                "Booking Systems",
+                "Guest Loyalty",
+                "Guest Experience"
+            ],
+
+            "workload_profile": "customer_application",
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 4,
+            "buyer_signal": 4
+        },
+
+
+        "virgin voyages": {
+            "business_model": "Hospitality/Cruise",
+            "industry": "Travel",
+
+            "workloads": [
+                "Booking Systems",
+                "Guest Loyalty",
+                "Guest Experience"
+            ],
+
+            "workload_profile": "customer_application",
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 4,
+            "buyer_signal": 4
+        },
+
+
+        "sandals resorts": {
+            "business_model": "Hospitality/Resorts",
+            "industry": "Travel",
+
+            "workloads": [
+                "Booking Systems",
+                "Guest Loyalty",
+                "Guest Experience"
+            ],
+
+            "workload_profile": "customer_application",
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 4,
+            "buyer_signal": 4
+        },
+
+
+        "marriott international": {
+            "business_model": "Hospitality",
+            "industry": "Travel",
+
+            "workloads": [
+                "Loyalty Program",
+                "Reservations",
+                "Guest Experience"
+            ],
+
+            "workload_profile": "customer_application",
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 4,
+            "buyer_signal": 5
+        },
+
+
+        "arrivia": {
+            "business_model": "Travel Technology",
+            "industry": "Travel",
+
+            "workloads": [
+                "Loyalty Platform",
+                "Booking Engine",
+                "Partner Integrations"
+            ],
+
+            "workload_profile": "api_platform",
+
+            "database_intensity": 4,
+            "operational_complexity": 5,
+            "realtime_requirement": 4,
+            "buyer_signal": 5
+        },
+
+
+        "klook travel technology": {
+            "business_model": "Travel Technology",
+            "industry": "Travel",
+
+            "workloads": [
+                "Booking Marketplace",
+                "Partner Integrations",
+                "Customer Profiles"
+            ],
+
+            "workload_profile": "api_platform",
+
+            "database_intensity": 4,
+            "operational_complexity": 5,
+            "realtime_requirement": 4,
+            "buyer_signal": 5
+        },
+
+
+        "five9": {
+            "business_model": "CCaaS",
+            "industry": "Technology / SaaS",
+
+            "workloads": [
+                "Contact Center Platform",
+                "Real-Time Interaction Data",
+                "Agent Routing"
+            ],
+
+            "workload_profile": "api_platform",
+
+            "database_intensity": 5,
+            "operational_complexity": 5,
+            "realtime_requirement": 5,
+            "buyer_signal": 5
+        },
+
+
+        "liveperson": {
+            "business_model": "CCaaS",
+            "industry": "Technology / SaaS",
+
+            "workloads": [
+                "Conversational Platform",
+                "Real-Time Messaging",
+                "Customer Engagement Data"
+            ],
+
+            "workload_profile": "api_platform",
+
+            "database_intensity": 5,
+            "operational_complexity": 5,
+            "realtime_requirement": 5,
+            "buyer_signal": 5
+        },
+
+
+        "zerofox": {
+            "business_model": "Cybersecurity",
+            "industry": "Technology / SaaS",
+
+            "workloads": [
+                "Threat Monitoring",
+                "Real-Time Alerting",
+                "Data Analysis"
+            ],
+
+            "workload_profile": "api_platform",
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 4,
+            "buyer_signal": 4
+        },
+
+
+        "motorola solutions": {
+            "business_model": "Public Safety Technology",
+            "industry": "Technology / SaaS",
+
+            "workloads": [
+                "Mission-Critical Communications",
+                "Dispatch Systems",
+                "Real-Time Alerting"
+            ],
+
+            "workload_profile": "api_platform",
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 4,
+            "buyer_signal": 4
+        },
+
+
+        "northrop grumman": {
+            "business_model": "Aerospace & Defense",
+            "industry": "Industrial",
+
+            "workloads": [
+                "Enterprise Systems",
+                "Operational Data"
+            ],
+
+            "workload_profile": "customer_application",
+
+            "database_intensity": 3,
+            "operational_complexity": 3,
+            "realtime_requirement": 2,
+            "buyer_signal": 3
+        },
+
+
+        "bnsf railway": {
+            "business_model": "Rail/Logistics",
+            "industry": "Logistics & Transportation",
+
+            "workloads": [
+                "Asset Tracking",
+                "Scheduling",
+                "Fleet Operations"
+            ],
+
+            "workload_profile": "logistics_platform",
+
+            "database_intensity": 3,
+            "operational_complexity": 4,
+            "realtime_requirement": 3,
+            "buyer_signal": 3
+        },
+
+
+        "ttx company": {
+            "business_model": "Rail/Logistics",
+            "industry": "Logistics & Transportation",
+
+            "workloads": [
+                "Railcar Pooling",
+                "Asset Tracking",
+                "Fleet Operations"
+            ],
+
+            "workload_profile": "logistics_platform",
+
+            "database_intensity": 3,
+            "operational_complexity": 4,
+            "realtime_requirement": 3,
+            "buyer_signal": 3
+        },
+
+
+        "agco corporation": {
+            "business_model": "Agricultural Equipment",
+            "industry": "Industrial",
+
+            "workloads": [
+                "Enterprise Systems",
+                "Operational Data"
+            ],
+
+            "workload_profile": "customer_application",
+
+            "database_intensity": 3,
+            "operational_complexity": 3,
+            "realtime_requirement": 2,
+            "buyer_signal": 3
+        },
+
+
+        "baker hughes": {
+            "business_model": "Oilfield Services",
+            "industry": "Industrial",
+
+            "workloads": [
+                "Sensor/Telemetry Data",
+                "Operational Data"
+            ],
+
+            "workload_profile": "customer_application",
+
+            "database_intensity": 3,
+            "operational_complexity": 3,
+            "realtime_requirement": 3,
+            "buyer_signal": 3
+        },
+
+
+        "nov inc": {
+            "business_model": "Oilfield Equipment",
+            "industry": "Industrial",
+
+            "workloads": [
+                "Sensor/Telemetry Data",
+                "Operational Data"
+            ],
+
+            "workload_profile": "customer_application",
+
+            "database_intensity": 3,
+            "operational_complexity": 3,
+            "realtime_requirement": 3,
+            "buyer_signal": 3
+        },
+
+
+        "national oceanic and atmospheric administration": {
+            "business_model": "Government/Scientific",
+            "industry": "Government",
+
+            "workloads": [
+                "Environmental Sensor Data",
+                "Satellite Data Ingestion",
+                "Real-Time Monitoring"
+            ],
+
+            "workload_profile": "api_platform",
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 4,
+            "buyer_signal": 4
+        },
+
+
+        "florida department of highway safety and motor vehicles": {
+            "business_model": "Government",
+            "industry": "Government",
+
+            "workloads": [
+                "Citizen Records",
+                "Licensing Systems"
+            ],
+
+            "workload_profile": "customer_application",
+
+            "database_intensity": 3,
+            "operational_complexity": 3,
+            "realtime_requirement": 2,
+            "buyer_signal": 3
+        },
+
+
+        "nsa": {
+            "business_model": "Government",
+            "industry": "Government",
+
+            "workloads": [
+                "Enterprise Systems",
+                "Operational Data"
+            ],
+
+            "workload_profile": "customer_application",
+
+            "database_intensity": 3,
+            "operational_complexity": 3,
+            "realtime_requirement": 3,
+            "buyer_signal": 3
+        },
+
+
+        "defence science & technology agency dsta": {
+            "business_model": "Government",
+            "industry": "Government",
+
+            "workloads": [
+                "Enterprise Systems",
+                "Operational Data"
+            ],
+
+            "workload_profile": "customer_application",
+
+            "database_intensity": 3,
+            "operational_complexity": 3,
+            "realtime_requirement": 3,
+            "buyer_signal": 3
+        },
+
+
+        "crowdstar": {
+            "business_model": "Mobile Gaming",
+            "industry": "Technology / SaaS",
+
+            "workloads": [
+                "Mobile Game Backend",
+                "Social/Leaderboard Data",
+                "In-App Purchases"
+            ],
+
+            "workload_profile": "mobile_application",
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 5,
+            "buyer_signal": 4
+        },
+
+
+        "playgon games": {
+            "business_model": "iGaming Technology",
+            "industry": "Technology / SaaS",
+
+            "workloads": [
+                "Live Dealer Streaming",
+                "Multi-Tenant Operator Platform",
+                "Real-Money Wagering"
+            ],
+
+            "workload_profile": "api_platform",
+
+            "database_intensity": 4,
+            "operational_complexity": 5,
+            "realtime_requirement": 5,
+            "buyer_signal": 5
+        },
+
+
+        "fbm gaming": {
+            "business_model": "Casino Gaming Platform",
+            "industry": "Technology / SaaS",
+
+            "workloads": [
+                "Real-Money Gameplay",
+                "Player Accounts",
+                "RNG-Driven Transactions"
+            ],
+
+            "workload_profile": "api_platform",
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 4,
+            "buyer_signal": 4
+        },
+
+
+        "snapser": {
+            "business_model": "Backend-as-a-Service (Gaming)",
+            "industry": "Technology / SaaS",
+
+            "workloads": [
+                "Game Backend Infrastructure",
+                "Player Data Services",
+                "Scalable Multi-Tenant Backend"
+            ],
+
+            "workload_profile": "api_platform",
+
+            "database_intensity": 4,
+            "operational_complexity": 5,
+            "realtime_requirement": 4,
+            "buyer_signal": 5
         }
 
     },
@@ -337,6 +900,42 @@
 
             "workload_profile":
                 "pharma_device_platform"
+        },
+
+
+        "Telecom": {
+
+            "keywords": [
+                "telecom",
+                "telecommunications",
+                "wireless",
+                "communications",
+                "cellular"
+            ],
+
+            "industry":
+                "Telecommunications",
+
+            "workload_profile":
+                "telecom_platform"
+        },
+
+
+        "Media/Entertainment": {
+
+            "keywords": [
+                "entertainment",
+                "broadcasting",
+                "studios",
+                "pictures",
+                "animation"
+            ],
+
+            "industry":
+                "Media & Entertainment",
+
+            "workload_profile":
+                "media_entertainment_platform"
         }
 
     },
@@ -577,6 +1176,50 @@
             "database_intensity": 2,
             "operational_complexity": 2,
             "realtime_requirement": 1
+        },
+
+
+        "telecom_platform": {
+
+            "workloads": [
+                "Subscriber Data",
+                "Billing Systems",
+                "Network Usage Data"
+            ],
+
+            "workload_strength": {
+
+                "customer_profiles": 4,
+                "real_time": 4,
+                "operational_data": 4
+
+            },
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 4
+        },
+
+
+        "media_entertainment_platform": {
+
+            "workloads": [
+                "Content Delivery",
+                "Viewer Engagement Data",
+                "Personalization"
+            ],
+
+            "workload_strength": {
+
+                "real_time": 4,
+                "customer_profiles": 4,
+                "operational_data": 3
+
+            },
+
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 4
         }
 
     }

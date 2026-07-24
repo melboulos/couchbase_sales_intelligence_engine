@@ -169,11 +169,23 @@ llm_accounts = validate_accounts(llm_candidates)
 #
 # Only merge rows that passed validation. Accounts where
 # llm_validation == False (e.g. hallucination detected,
-# forbidden evidence language, empty required content)
-# should not have their content flow into the dashboard
-# or scored output — they fall back to no LLM data, the
-# same as a gate-skipped account, rather than displaying
-# unvalidated content as if it were trustworthy.
+# forbidden evidence language, empty required content,
+# inconsistent independent score) should not have their
+# content flow into the dashboard or scored output — they
+# fall back to no LLM data, the same as a gate-skipped
+# account, rather than displaying unvalidated content as
+# if it were trustworthy.
+#
+# llm_workload_score / llm_realtime_score /
+# llm_complexity_score / llm_total_score /
+# llm_score_reasoning are the LLM's own INDEPENDENT score,
+# generated without ever seeing overall_coi, priority_tier,
+# or the deterministic database_intensity /
+# operational_complexity / realtime_requirement values.
+# They exist side-by-side with overall_coi in the output
+# purely so the two can be compared to find gaps in
+# data/company_patterns.json — they are never merged,
+# blended, or used to adjust overall_coi.
 #
 # Column list matches the current sales_intelligence_pipeline.py /
 # llm_prompt_builder.py contract. Old schema fields
@@ -202,7 +214,12 @@ llm_merge_columns = [
     "couchbase_point_of_view",
     "technical_risks_to_validate",
     "discovery_progression",
-    "missing_information"
+    "missing_information",
+    "llm_workload_score",
+    "llm_realtime_score",
+    "llm_complexity_score",
+    "llm_total_score",
+    "llm_score_reasoning"
 ]
 
 llm_merge_columns = [

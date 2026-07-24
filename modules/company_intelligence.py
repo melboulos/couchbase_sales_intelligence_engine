@@ -64,6 +64,37 @@ def is_excluded_provider(account_name):
 
 
 # =====================================================
+# KEYWORD FALSE-POSITIVE EXCLUSIONS
+#
+# Some business-pattern keywords are short, common
+# substrings that also appear inside unrelated proper
+# nouns (e.g. "card" inside "Cardinal", "Wildcard").
+# Word-boundary regex was considered and rejected: most
+# genuine matches for "card" are compound words with no
+# separator (Cardtronics, Datacard, Cardcash, Trialcard),
+# so boundary matching would lose more true positives
+# than false positives it removes. An explicit exclusion
+# list is more precise.
+#
+# Structure: keyword -> list of account-name substrings
+# that should NOT count as a match for that keyword,
+# even though the keyword text is technically present.
+# =====================================================
+
+KEYWORD_FALSE_POSITIVE_EXCLUSIONS = {
+    "card": ["cardinal", "wildcard"]
+}
+
+
+def is_false_positive_match(keyword, account_name):
+    exclusions = KEYWORD_FALSE_POSITIVE_EXCLUSIONS.get(keyword, [])
+    for excluded_substring in exclusions:
+        if excluded_substring in account_name:
+            return True
+    return False
+
+
+# =====================================================
 # WORKLOAD STRENGTH LABEL
 #
 # Converts the numeric workload_strength sub-signal
@@ -228,7 +259,7 @@ def analyze_company(row):
         for keyword in data.get("keywords", []):
             keyword = keyword.lower().strip()
 
-            if keyword in account_name:
+            if keyword in account_name and not is_false_positive_match(keyword, account_name):
                 return apply_intelligence(
                     result, data, "Business pattern match: " + model
                 )
