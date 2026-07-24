@@ -43,6 +43,8 @@ REQUIRED_FIELDS = [
     "technical_risks_to_validate",
     "discovery_progression",
     "missing_information",
+    "llm_company_recognized",
+    "llm_specific_fact",
     "llm_workload_score",
     "llm_realtime_score",
     "llm_complexity_score",
@@ -64,7 +66,8 @@ NON_EMPTY_FIELDS = [
     "engineering_implications",
     "couchbase_point_of_view",
     "discovery_progression",
-    "llm_score_reasoning"
+    "llm_score_reasoning",
+    "llm_specific_fact"
 ]
 
 # Sub-score fields and their valid ranges, per the rubric
@@ -74,6 +77,53 @@ SCORE_RANGES = {
     "llm_realtime_score": (0, 30),
     "llm_complexity_score": (0, 30)
 }
+
+# Conservative ceilings applied IN CODE when the model sets
+# llm_company_recognized to false. The prompt already
+# instructs the model to self-limit in this situation, but
+# testing showed it doesn't reliably comply (e.g. Trumid
+# Financial: llm_company_recognized=false, reasoning said
+# "I score conservatively", yet returned 60/100 - well above
+# the mandated <30 ceiling). This is a known model-reliability
+# limit (Llama 3 70B), not a prompt-wording problem, so it is
+# now enforced structurally rather than trusted from the
+# model's own arithmetic.
+CONSERVATIVE_CEILINGS = {
+    "llm_workload_score": 15,
+    "llm_realtime_score": 10,
+    "llm_complexity_score": 10
+}
+
+# Phrases that indicate llm_specific_fact is really just the
+# industry category restated, not a genuine fact about the
+# named company. Testing showed even "recognized" accounts
+# (e.g. Netspend, United Community Bank) produce reasoning
+# that never goes beyond "as a FinTech/banking company,
+# X typically has..." - this list catches that pattern so
+# llm_company_recognized can't be trusted at face value.
+GENERIC_FACT_PHRASES = [
+    "typically",
+    "generally",
+    "usually",
+    "commonly",
+    "likely has",
+    "likely handles",
+    "as a fintech company",
+    "as a financial services company",
+    "as a healthcare company",
+    "as a technology company",
+    "this type of business",
+    "this type of company",
+    "companies like this",
+    "companies in this industry",
+    "industry standard",
+    "based on their industry",
+    "based on the industry",
+    "based on my knowledge of",
+    "none - not specifically recognized"
+]
+
+MIN_FACT_LENGTH = 15
 
 
 # =====================================================
@@ -160,6 +210,12 @@ def validate_non_empty_fields(result):
 def validate_independent_score(result):
     violations = []
 
+    recognized = result.get("llm_company_recognized")
+    if not isinstance(recognized, bool):
+        violations.append(
+            f"llm_company_recognized is not a boolean: {recognized!r}"
+        )
+
     for field, (low, high) in SCORE_RANGES.items():
         value = result.get(field)
 
@@ -188,6 +244,111 @@ def validate_independent_score(result):
             f"llm_total_score ({total}) does not match sum of sub-scores "
             f"({expected_total})"
         )
+
+
+# =====================================================
+# CODE-ENFORCED RECOGNITION CAP
+#
+# Runs AFTER validate_independent_score (so we only clamp
+# values that are already structurally valid - in range and
+# internally consistent). If llm_company_recognized is False,
+# any sub-score above its conservative ceiling gets clamped
+# down and llm_total_score is recomputed to match, since the
+# model was confirmed to ignore the prompt's own instruction
+# to self-limit in this case.
+#
+# Always sets result["llm_score_capped"] (True/False) so it's
+# visible in the output which rows were code-corrected, rather
+# than silently rewriting the model's number with no trace.
+# =====================================================
+
+# =====================================================
+# RECOGNITION EVIDENCE CHECK
+#
+# llm_company_recognized is the model's own self-report,
+# and testing showed it isn't trustworthy on its own -
+# "recognized" accounts (Netspend, United Community Bank)
+# gave reasoning that never went beyond restating the
+# industry category ("as a FinTech company...", "based on
+# my knowledge of banking systems..."), yet still claimed
+# recognized=true. This function checks the actual evidence
+# (llm_specific_fact) rather than trusting the verdict, and
+# sets llm_recognition_verified - which is what the cap
+# enforcement below actually keys off, NOT the raw
+# llm_company_recognized field.
+# =====================================================
+
+def validate_recognition_evidence(result):
+    claimed_recognized = bool(result.get("llm_company_recognized"))
+    fact = normalize_text(result.get("llm_specific_fact", ""))
+
+    too_short = len(fact) < MIN_FACT_LENGTH
+    is_generic = any(phrase in fact for phrase in GENERIC_FACT_PHRASES)
+
+    verified = claimed_recognized and fact and not too_short and not is_generic
+
+    result["llm_recognition_verified"] = verified
+
+    if claimed_recognized and not verified:
+        result["llm_score_reasoning"] = (
+            str(result.get("llm_score_reasoning", "")) +
+            " [RECOGNITION NOT VERIFIED: llm_company_recognized was "
+            "true but llm_specific_fact did not contain a genuine, "
+            "specific, checkable claim about this named company - "
+            "treated as unrecognized for scoring purposes.]"
+        )
+
+    return result
+
+
+# =====================================================
+# CODE-ENFORCED RECOGNITION CAP
+#
+# Runs AFTER validate_independent_score (so we only clamp
+# values that are already structurally valid - in range and
+# internally consistent) AND after validate_recognition_evidence
+# (so the cap keys off llm_recognition_verified - actual checked
+# evidence - not the model's raw, unverified self-report). Any
+# sub-score above its conservative ceiling gets clamped down and
+# llm_total_score is recomputed to match.
+#
+# Always sets result["llm_score_capped"] (True/False) so it's
+# visible in the output which rows were code-corrected, rather
+# than silently rewriting the model's number with no trace.
+# =====================================================
+
+def enforce_company_recognition_cap(result):
+    if result.get("llm_recognition_verified") is True:
+        result["llm_score_capped"] = False
+        return result
+
+    capped_any = False
+
+    for field, ceiling in CONSERVATIVE_CEILINGS.items():
+        value = result.get(field, 0)
+        if isinstance(value, (int, float)) and value > ceiling:
+            result[field] = ceiling
+            capped_any = True
+
+    if capped_any:
+        result["llm_total_score"] = (
+            result.get("llm_workload_score", 0)
+            + result.get("llm_realtime_score", 0)
+            + result.get("llm_complexity_score", 0)
+        )
+        result["llm_score_reasoning"] = (
+            str(result.get("llm_score_reasoning", "")) +
+            " [CODE-ENFORCED CAP: llm_recognition_verified was false "
+            "(company not genuinely recognized with specific evidence) "
+            "but the model's own sub-scores exceeded the conservative "
+            "ceiling (workload<=15/realtime<=10/complexity<=10); "
+            "clamped in code rather than trusted as reported.]"
+        )
+        result["llm_score_capped"] = True
+    else:
+        result["llm_score_capped"] = False
+
+    return result
 
 
 # =====================================================
@@ -308,6 +469,8 @@ def validate_llm_output(result, raw_text, account_name):
     validate_required_fields(result)
     validate_non_empty_fields(result)
     validate_independent_score(result)
+    validate_recognition_evidence(result)
+    enforce_company_recognition_cap(result)
 
     combined_text = normalize_text(
         json.dumps(result) + str(raw_text)
@@ -411,6 +574,16 @@ def validate_account(row):
             intelligence.get("llm_raw_response", ""),
             row.get("Account Name", "")
         )
+
+        # Re-merge: validate_llm_output (specifically
+        # enforce_company_recognition_cap) can mutate
+        # `intelligence` in place - e.g. clamping scores when
+        # llm_company_recognized is false. The earlier
+        # `result.update(intelligence)` above only copied the
+        # pre-validation snapshot, so merge again to make sure
+        # any code-enforced correction actually reaches the
+        # final output.
+        result.update(intelligence)
 
         result["llm_validation"] = True
         result["llm_stage"] = "SINGLE_INTELLIGENCE"

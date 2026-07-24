@@ -1,735 +1,639 @@
 {
     "known_companies": {
-
         "netspend": {
             "business_model": "FinTech",
             "industry": "Financial Services",
             "financial_segment": "Payments",
-
             "workloads": [
                 "Payments",
                 "Customer Accounts",
                 "Transaction Processing",
                 "Fraud Detection"
             ],
-
             "workload_profile": "payment_platform",
-
             "database_intensity": 5,
             "operational_complexity": 5,
             "realtime_requirement": 5,
             "buyer_signal": 5,
-
-            "couchbase_fit_reason":
-                "Payment platforms typically require highly available operational applications supporting customer accounts, transactions, and real-time user experiences."
+            "couchbase_fit_reason": "Payment platforms typically require highly available operational applications supporting customer accounts, transactions, and real-time user experiences."
         },
-
-
         "paytronix": {
             "business_model": "Payments",
             "industry": "Financial Services",
             "financial_segment": "Payments",
-
             "workloads": [
                 "Restaurant Payments",
                 "Customer Loyalty",
                 "Transaction Processing",
                 "Customer Profiles"
             ],
-
             "workload_profile": "payment_platform",
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 4,
             "buyer_signal": 4,
-
-            "couchbase_fit_reason":
-                "Customer loyalty and payment platforms commonly require scalable operational systems supporting transactions and customer experiences."
+            "couchbase_fit_reason": "Customer loyalty and payment platforms commonly require scalable operational systems supporting transactions and customer experiences."
         },
-
-
         "cleo": {
             "business_model": "Integration Platform",
             "industry": "Technology / SaaS",
-
             "workloads": [
                 "API Platform",
                 "Integration Services",
                 "Operational Applications"
             ],
-
             "workload_profile": "api_platform",
-
             "database_intensity": 4,
             "operational_complexity": 5,
             "realtime_requirement": 4,
             "buyer_signal": 5,
-
-            "couchbase_fit_reason":
-                "Integration platforms often require flexible operational data services supporting high throughput APIs and applications."
+            "couchbase_fit_reason": "Integration platforms often require flexible operational data services supporting high throughput APIs and applications."
         },
-
-
         "redox": {
             "business_model": "Healthcare Technology",
             "industry": "Healthcare",
-
             "workloads": [
                 "Healthcare APIs",
                 "Patient Data Exchange",
                 "Integration Platform",
                 "Application Data"
             ],
-
             "workload_profile": "api_platform",
-
             "database_intensity": 5,
             "operational_complexity": 5,
             "realtime_requirement": 4,
             "buyer_signal": 5,
-
-            "couchbase_fit_reason":
-                "Healthcare integration platforms commonly require scalable operational data services supporting APIs and application workflows."
+            "couchbase_fit_reason": "Healthcare integration platforms commonly require scalable operational data services supporting APIs and application workflows."
         },
-
-
         "staywell": {
             "business_model": "Healthcare Technology",
             "industry": "Healthcare",
-
             "workloads": [
                 "Patient Engagement",
                 "Healthcare Applications",
                 "Customer Profiles"
             ],
-
             "workload_profile": "customer_application",
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 3,
             "buyer_signal": 4,
-
-            "couchbase_fit_reason":
-                "Healthcare engagement platforms often manage customer-facing applications requiring flexible operational data models."
+            "couchbase_fit_reason": "Healthcare engagement platforms often manage customer-facing applications requiring flexible operational data models."
         },
-
-
         "peopleadmin": {
             "business_model": "HR SaaS",
             "industry": "Technology / SaaS",
-
             "workloads": [
                 "Employee Profiles",
                 "Workflow Applications",
                 "Multi Tenant SaaS"
             ],
-
             "workload_profile": "saas_platform",
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 3,
             "buyer_signal": 5,
-
-            "couchbase_fit_reason":
-                "Multi-tenant SaaS applications commonly require scalable operational databases supporting user and workflow data."
+            "couchbase_fit_reason": "Multi-tenant SaaS applications commonly require scalable operational databases supporting user and workflow data."
         },
-
-
         "openkey": {
             "business_model": "Travel Technology",
             "industry": "Travel",
-
             "workloads": [
                 "Mobile Applications",
                 "Customer Identity",
                 "Real-Time Access"
             ],
-
             "workload_profile": "mobile_application",
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 5,
             "buyer_signal": 4,
-
-            "couchbase_fit_reason":
-                "Mobile applications with identity and real-time access requirements are common operational database workloads."
+            "couchbase_fit_reason": "Mobile applications with identity and real-time access requirements are common operational database workloads."
         },
-
-
         "bradesco": {
             "business_model": "Banking",
             "industry": "Financial Services",
-
             "workloads": [
                 "Core Banking",
                 "Transaction Processing",
                 "Customer Accounts"
             ],
-
             "workload_profile": "payment_platform",
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 3,
             "buyer_signal": 4
         },
-
-
         "btg pactual": {
             "business_model": "Banking",
             "industry": "Financial Services",
-
             "workloads": [
                 "Core Banking",
                 "Transaction Processing",
                 "Customer Accounts"
             ],
-
             "workload_profile": "payment_platform",
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 3,
             "buyer_signal": 4
         },
-
-
         "state street bank": {
             "business_model": "Banking",
             "industry": "Financial Services",
-
             "workloads": [
                 "Core Banking",
                 "Custodial Services",
                 "Transaction Processing"
             ],
-
             "workload_profile": "payment_platform",
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 3,
             "buyer_signal": 4
         },
-
-
         "australia and new zealand banking group": {
             "business_model": "Banking",
             "industry": "Financial Services",
-
             "workloads": [
                 "Core Banking",
                 "Transaction Processing",
                 "Customer Accounts"
             ],
-
             "workload_profile": "payment_platform",
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 3,
             "buyer_signal": 4
         },
-
-
         "american airlines": {
             "business_model": "Airline",
             "industry": "Travel",
-
             "workloads": [
                 "Seat Inventory",
                 "Dynamic Pricing",
                 "Booking Systems"
             ],
-
             "workload_profile": "mobile_application",
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 5,
             "buyer_signal": 5
         },
-
-
         "united airlines": {
             "business_model": "Airline",
             "industry": "Travel",
-
             "workloads": [
                 "Seat Inventory",
                 "Dynamic Pricing",
                 "Booking Systems"
             ],
-
             "workload_profile": "mobile_application",
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 5,
             "buyer_signal": 5
         },
-
-
         "royal caribbean cruises": {
             "business_model": "Hospitality/Cruise",
             "industry": "Travel",
-
             "workloads": [
                 "Booking Systems",
                 "Guest Loyalty",
                 "Guest Experience"
             ],
-
             "workload_profile": "customer_application",
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 4,
             "buyer_signal": 4
         },
-
-
         "virgin voyages": {
             "business_model": "Hospitality/Cruise",
             "industry": "Travel",
-
             "workloads": [
                 "Booking Systems",
                 "Guest Loyalty",
                 "Guest Experience"
             ],
-
             "workload_profile": "customer_application",
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 4,
             "buyer_signal": 4
         },
-
-
         "sandals resorts": {
             "business_model": "Hospitality/Resorts",
             "industry": "Travel",
-
             "workloads": [
                 "Booking Systems",
                 "Guest Loyalty",
                 "Guest Experience"
             ],
-
             "workload_profile": "customer_application",
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 4,
             "buyer_signal": 4
         },
-
-
         "marriott international": {
             "business_model": "Hospitality",
             "industry": "Travel",
-
             "workloads": [
                 "Loyalty Program",
                 "Reservations",
                 "Guest Experience"
             ],
-
             "workload_profile": "customer_application",
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 4,
             "buyer_signal": 5
         },
-
-
         "arrivia": {
             "business_model": "Travel Technology",
             "industry": "Travel",
-
             "workloads": [
                 "Loyalty Platform",
                 "Booking Engine",
                 "Partner Integrations"
             ],
-
             "workload_profile": "api_platform",
-
             "database_intensity": 4,
             "operational_complexity": 5,
             "realtime_requirement": 4,
             "buyer_signal": 5
         },
-
-
         "klook travel technology": {
             "business_model": "Travel Technology",
             "industry": "Travel",
-
             "workloads": [
                 "Booking Marketplace",
                 "Partner Integrations",
                 "Customer Profiles"
             ],
-
             "workload_profile": "api_platform",
-
             "database_intensity": 4,
             "operational_complexity": 5,
             "realtime_requirement": 4,
             "buyer_signal": 5
         },
-
-
         "five9": {
             "business_model": "CCaaS",
             "industry": "Technology / SaaS",
-
             "workloads": [
                 "Contact Center Platform",
                 "Real-Time Interaction Data",
                 "Agent Routing"
             ],
-
             "workload_profile": "api_platform",
-
             "database_intensity": 5,
             "operational_complexity": 5,
             "realtime_requirement": 5,
             "buyer_signal": 5
         },
-
-
         "liveperson": {
             "business_model": "CCaaS",
             "industry": "Technology / SaaS",
-
             "workloads": [
                 "Conversational Platform",
                 "Real-Time Messaging",
                 "Customer Engagement Data"
             ],
-
             "workload_profile": "api_platform",
-
             "database_intensity": 5,
             "operational_complexity": 5,
             "realtime_requirement": 5,
             "buyer_signal": 5
         },
-
-
         "zerofox": {
             "business_model": "Cybersecurity",
             "industry": "Technology / SaaS",
-
             "workloads": [
                 "Threat Monitoring",
                 "Real-Time Alerting",
                 "Data Analysis"
             ],
-
             "workload_profile": "api_platform",
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 4,
             "buyer_signal": 4
         },
-
-
         "motorola solutions": {
             "business_model": "Public Safety Technology",
             "industry": "Technology / SaaS",
-
             "workloads": [
                 "Mission-Critical Communications",
                 "Dispatch Systems",
                 "Real-Time Alerting"
             ],
-
             "workload_profile": "api_platform",
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 4,
             "buyer_signal": 4
         },
-
-
         "northrop grumman": {
             "business_model": "Aerospace & Defense",
             "industry": "Industrial",
-
             "workloads": [
                 "Enterprise Systems",
                 "Operational Data"
             ],
-
             "workload_profile": "customer_application",
-
             "database_intensity": 3,
             "operational_complexity": 3,
             "realtime_requirement": 2,
             "buyer_signal": 3
         },
-
-
         "bnsf railway": {
             "business_model": "Rail/Logistics",
             "industry": "Logistics & Transportation",
-
             "workloads": [
                 "Asset Tracking",
                 "Scheduling",
                 "Fleet Operations"
             ],
-
             "workload_profile": "logistics_platform",
-
             "database_intensity": 3,
             "operational_complexity": 4,
             "realtime_requirement": 3,
             "buyer_signal": 3
         },
-
-
         "ttx company": {
             "business_model": "Rail/Logistics",
             "industry": "Logistics & Transportation",
-
             "workloads": [
                 "Railcar Pooling",
                 "Asset Tracking",
                 "Fleet Operations"
             ],
-
             "workload_profile": "logistics_platform",
-
             "database_intensity": 3,
             "operational_complexity": 4,
             "realtime_requirement": 3,
             "buyer_signal": 3
         },
-
-
         "agco corporation": {
             "business_model": "Agricultural Equipment",
             "industry": "Industrial",
-
             "workloads": [
                 "Enterprise Systems",
                 "Operational Data"
             ],
-
             "workload_profile": "customer_application",
-
             "database_intensity": 3,
             "operational_complexity": 3,
             "realtime_requirement": 2,
             "buyer_signal": 3
         },
-
-
         "baker hughes": {
             "business_model": "Oilfield Services",
             "industry": "Industrial",
-
             "workloads": [
                 "Sensor/Telemetry Data",
                 "Operational Data"
             ],
-
             "workload_profile": "customer_application",
-
             "database_intensity": 3,
             "operational_complexity": 3,
             "realtime_requirement": 3,
             "buyer_signal": 3
         },
-
-
         "nov inc": {
             "business_model": "Oilfield Equipment",
             "industry": "Industrial",
-
             "workloads": [
                 "Sensor/Telemetry Data",
                 "Operational Data"
             ],
-
             "workload_profile": "customer_application",
-
             "database_intensity": 3,
             "operational_complexity": 3,
             "realtime_requirement": 3,
             "buyer_signal": 3
         },
-
-
         "national oceanic and atmospheric administration": {
             "business_model": "Government/Scientific",
             "industry": "Government",
-
             "workloads": [
                 "Environmental Sensor Data",
                 "Satellite Data Ingestion",
                 "Real-Time Monitoring"
             ],
-
             "workload_profile": "api_platform",
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 4,
             "buyer_signal": 4
         },
-
-
         "florida department of highway safety and motor vehicles": {
             "business_model": "Government",
             "industry": "Government",
-
             "workloads": [
                 "Citizen Records",
                 "Licensing Systems"
             ],
-
             "workload_profile": "customer_application",
-
             "database_intensity": 3,
             "operational_complexity": 3,
             "realtime_requirement": 2,
             "buyer_signal": 3
         },
-
-
         "nsa": {
             "business_model": "Government",
             "industry": "Government",
-
             "workloads": [
                 "Enterprise Systems",
                 "Operational Data"
             ],
-
             "workload_profile": "customer_application",
-
             "database_intensity": 3,
             "operational_complexity": 3,
             "realtime_requirement": 3,
             "buyer_signal": 3
         },
-
-
         "defence science & technology agency dsta": {
             "business_model": "Government",
             "industry": "Government",
-
             "workloads": [
                 "Enterprise Systems",
                 "Operational Data"
             ],
-
             "workload_profile": "customer_application",
-
             "database_intensity": 3,
             "operational_complexity": 3,
             "realtime_requirement": 3,
             "buyer_signal": 3
         },
-
-
         "crowdstar": {
             "business_model": "Mobile Gaming",
             "industry": "Technology / SaaS",
-
             "workloads": [
                 "Mobile Game Backend",
                 "Social/Leaderboard Data",
                 "In-App Purchases"
             ],
-
             "workload_profile": "mobile_application",
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 5,
             "buyer_signal": 4
         },
-
-
         "playgon games": {
             "business_model": "iGaming Technology",
             "industry": "Technology / SaaS",
-
             "workloads": [
                 "Live Dealer Streaming",
                 "Multi-Tenant Operator Platform",
                 "Real-Money Wagering"
             ],
-
             "workload_profile": "api_platform",
-
             "database_intensity": 4,
             "operational_complexity": 5,
             "realtime_requirement": 5,
             "buyer_signal": 5
         },
-
-
         "fbm gaming": {
             "business_model": "Casino Gaming Platform",
             "industry": "Technology / SaaS",
-
             "workloads": [
                 "Real-Money Gameplay",
                 "Player Accounts",
                 "RNG-Driven Transactions"
             ],
-
             "workload_profile": "api_platform",
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 4,
             "buyer_signal": 4
         },
-
-
         "snapser": {
             "business_model": "Backend-as-a-Service (Gaming)",
             "industry": "Technology / SaaS",
-
             "workloads": [
                 "Game Backend Infrastructure",
                 "Player Data Services",
                 "Scalable Multi-Tenant Backend"
             ],
-
             "workload_profile": "api_platform",
-
             "database_intensity": 4,
             "operational_complexity": 5,
             "realtime_requirement": 4,
             "buyer_signal": 5
+        },
+        "new york life insurance": {
+            "business_model": "Insurance",
+            "industry": "Financial Services",
+            "workloads": [
+                "Policy Administration",
+                "Claims Processing",
+                "Asset Management"
+            ],
+            "workload_profile": "insurance_platform",
+            "database_intensity": 4,
+            "operational_complexity": 3,
+            "realtime_requirement": 2,
+            "buyer_signal": 4,
+            "_research_note": "Largest mutual life insurer in the US, Fortune 100. $463.5B total assets, ~$879B AUM (New York Life 2025 results). Elephant exception to the flat insurance_platform default."
+        },
+        "hcc insurance holdings": {
+            "business_model": "Insurance",
+            "industry": "Financial Services",
+            "workloads": [
+                "Policy Administration",
+                "Claims Processing",
+                "Specialty Underwriting"
+            ],
+            "workload_profile": "insurance_platform",
+            "database_intensity": 4,
+            "operational_complexity": 3,
+            "realtime_requirement": 2,
+            "buyer_signal": 4,
+            "_research_note": "Tokio Marine HCC. Member of Tokio Marine Group (~$71-86B market cap). $8.1B gross written premium 2025, 4,400 employees, 180 countries, 100+ specialty insurance lines. Elephant exception to the flat insurance_platform default."
+        },
+        "novartis": {
+            "business_model": "Pharmaceuticals",
+            "industry": "Pharma & Medical Device",
+            "workloads": [
+                "Manufacturing Operations",
+                "Supply Chain",
+                "Regulatory Data",
+                "Clinical Trials Data"
+            ],
+            "workload_profile": "pharma_device_platform",
+            "database_intensity": 4,
+            "operational_complexity": 3,
+            "realtime_requirement": 1,
+            "buyer_signal": 4,
+            "_research_note": "One of the largest global pharmaceutical companies. $56.67B revenue 2025. Elephant exception to the flat pharma_device_platform default."
+        },
+        "teva pharmaceuticals": {
+            "business_model": "Pharmaceuticals",
+            "industry": "Pharma & Medical Device",
+            "workloads": [
+                "Manufacturing Operations",
+                "Supply Chain",
+                "Regulatory Data"
+            ],
+            "workload_profile": "pharma_device_platform",
+            "database_intensity": 4,
+            "operational_complexity": 3,
+            "realtime_requirement": 1,
+            "buyer_signal": 4,
+            "_research_note": "One of the world's largest generic and specialty pharmaceutical makers. ~$16.8-17B revenue 2025, global manufacturing (9 plants). Elephant exception to the flat pharma_device_platform default."
+        },
+        "alexion pharmaceuticals": {
+            "business_model": "Pharmaceuticals",
+            "industry": "Pharma & Medical Device",
+            "workloads": [
+                "Manufacturing Operations",
+                "Supply Chain",
+                "Regulatory Data",
+                "Clinical Trials Data"
+            ],
+            "workload_profile": "pharma_device_platform",
+            "database_intensity": 4,
+            "operational_complexity": 3,
+            "realtime_requirement": 1,
+            "buyer_signal": 4,
+            "_research_note": "Rare-disease biopharma, acquired by AstraZeneca for $39B (2021); operates as a multi-billion dollar business unit within AstraZeneca. Elephant exception to the flat pharma_device_platform default."
+        },
+        "westar energy": {
+            "business_model": "Electric Utility",
+            "industry": "Utilities",
+            "workloads": [
+                "Grid Operations",
+                "Customer Billing",
+                "Operational Monitoring",
+                "Smart Meter Data"
+            ],
+            "workload_profile": "utilities_platform",
+            "database_intensity": 4,
+            "operational_complexity": 4,
+            "realtime_requirement": 3,
+            "buyer_signal": 4,
+            "_research_note": "Major Kansas electric utility; merged into Evergy (NYSE: EVRG, S&P 500 component) in 2018, ~1.7M combined customers, ~$5B revenue. Account name may still appear under the legacy Westar brand in CRM data. Elephant exception to the flat utilities_platform default."
+        },
+        "mitsubishi electric power products": {
+            "business_model": "Industrial Equipment / Technology Vendor to Utilities",
+            "industry": "Technology / SaaS",
+            "workloads": [
+                "Grid Analytics Platform (Power-I)",
+                "Substation Monitoring",
+                "Distributed Energy Resource Management"
+            ],
+            "workload_profile": "utilities_platform",
+            "database_intensity": 3,
+            "operational_complexity": 3,
+            "realtime_requirement": 2,
+            "buyer_signal": 3,
+            "_research_note": "NOT itself a utility - a 100%-owned US subsidiary of Mitsubishi Electric Corporation (Japan) that manufactures grid equipment (switchgear, transformers, substations) and real-time grid-analytics software (Power-I) FOR utilities. ~4,000 US employees. Given a modest bump (not full elephant-utility treatment) since its own workload is equipment/software delivery, not grid operations at utility scale."
         }
-
     },
-
-
     "business_patterns": {
-
-
         "FinTech": {
-
             "keywords": [
                 "payment",
                 "payments",
@@ -738,34 +642,20 @@
                 "transaction",
                 "card"
             ],
-
-            "industry":
-                "Financial Services",
-
-            "workload_profile":
-                "payment_platform"
+            "industry": "Financial Services",
+            "workload_profile": "payment_platform"
         },
-
-
         "Healthcare Technology": {
-
             "keywords": [
                 "health",
                 "medical",
                 "patient",
                 "care"
             ],
-
-            "industry":
-                "Healthcare",
-
-            "workload_profile":
-                "customer_application"
+            "industry": "Healthcare",
+            "workload_profile": "customer_application"
         },
-
-
         "SaaS": {
-
             "keywords": [
                 "saas",
                 "software platform",
@@ -773,34 +663,20 @@
                 "application platform",
                 "digital platform"
             ],
-
-            "industry":
-                "Technology / SaaS",
-
-            "workload_profile":
-                "saas_platform"
+            "industry": "Technology / SaaS",
+            "workload_profile": "saas_platform"
         },
-
-
         "API Platform": {
-
             "keywords": [
                 "api",
                 "integration",
                 "developer platform",
                 "data exchange"
             ],
-
-            "industry":
-                "Technology / SaaS",
-
-            "workload_profile":
-                "api_platform"
+            "industry": "Technology / SaaS",
+            "workload_profile": "api_platform"
         },
-
-
         "Utilities": {
-
             "keywords": [
                 "power",
                 "energy",
@@ -808,34 +684,20 @@
                 "utility",
                 "utilities"
             ],
-
-            "industry":
-                "Utilities",
-
-            "workload_profile":
-                "utilities_platform"
+            "industry": "Utilities",
+            "workload_profile": "utilities_platform"
         },
-
-
         "Media/Advertising": {
-
             "keywords": [
                 "media",
                 "advertising",
                 "communications group",
                 "broadcast"
             ],
-
-            "industry":
-                "Media & Advertising",
-
-            "workload_profile":
-                "media_platform"
+            "industry": "Media & Advertising",
+            "workload_profile": "media_platform"
         },
-
-
         "Logistics/Transportation": {
-
             "keywords": [
                 "logistics",
                 "freight",
@@ -844,49 +706,28 @@
                 "carrier",
                 "distribution"
             ],
-
-            "industry":
-                "Logistics & Transportation",
-
-            "workload_profile":
-                "logistics_platform"
+            "industry": "Logistics & Transportation",
+            "workload_profile": "logistics_platform"
         },
-
-
         "Retail": {
-
             "keywords": [
                 "retail",
                 "restaurant",
                 "stores"
             ],
-
-            "industry":
-                "Retail",
-
-            "workload_profile":
-                "retail_platform"
+            "industry": "Retail",
+            "workload_profile": "retail_platform"
         },
-
-
         "Insurance": {
-
             "keywords": [
                 "insurance",
                 "mutual",
                 "annuity"
             ],
-
-            "industry":
-                "Insurance",
-
-            "workload_profile":
-                "insurance_platform"
+            "industry": "Insurance",
+            "workload_profile": "insurance_platform"
         },
-
-
         "Pharma/Medical Device": {
-
             "keywords": [
                 "pharma",
                 "pharmaceutical",
@@ -894,17 +735,10 @@
                 "medical device",
                 "medical devices"
             ],
-
-            "industry":
-                "Pharma & Medical Device",
-
-            "workload_profile":
-                "pharma_device_platform"
+            "industry": "Pharma & Medical Device",
+            "workload_profile": "pharma_device_platform"
         },
-
-
         "Telecom": {
-
             "keywords": [
                 "telecom",
                 "telecommunications",
@@ -912,17 +746,10 @@
                 "communications",
                 "cellular"
             ],
-
-            "industry":
-                "Telecommunications",
-
-            "workload_profile":
-                "telecom_platform"
+            "industry": "Telecommunications",
+            "workload_profile": "telecom_platform"
         },
-
-
         "Media/Entertainment": {
-
             "keywords": [
                 "entertainment",
                 "broadcasting",
@@ -930,297 +757,198 @@
                 "pictures",
                 "animation"
             ],
-
-            "industry":
-                "Media & Entertainment",
-
-            "workload_profile":
-                "media_entertainment_platform"
+            "industry": "Media & Entertainment",
+            "workload_profile": "media_entertainment_platform"
         }
-
     },
-
-
     "workload_profiles": {
-
-
         "payment_platform": {
-
             "workloads": [
                 "Transaction Processing",
                 "Customer Profiles",
                 "Fraud Detection",
                 "Real-Time Applications"
             ],
-
             "workload_strength": {
-
                 "transaction_processing": 5,
                 "customer_profiles": 5,
                 "real_time": 5,
                 "api": 4
-
             },
-
             "database_intensity": 5,
             "operational_complexity": 5,
             "realtime_requirement": 5
         },
-
-
         "api_platform": {
-
             "workloads": [
                 "API Services",
                 "Integration Workloads",
                 "Operational Applications"
             ],
-
             "workload_strength": {
-
                 "api": 5,
                 "operational_data": 4,
                 "real_time": 4
-
             },
-
             "database_intensity": 4,
             "operational_complexity": 5,
             "realtime_requirement": 4
         },
-
-
         "saas_platform": {
-
             "workloads": [
                 "User Profiles",
                 "Multi Tenant Applications",
                 "Workflow Applications"
             ],
-
             "workload_strength": {
-
                 "customer_profiles": 4,
                 "multi_tenant": 5,
                 "application_data": 4
-
             },
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 3
         },
-
-
         "customer_application": {
-
             "workloads": [
                 "Customer Profiles",
                 "Application Data",
                 "User Experience"
             ],
-
             "workload_strength": {
-
                 "customer_profiles": 4,
                 "application_data": 4,
                 "real_time": 3
-
             },
-
             "database_intensity": 3,
             "operational_complexity": 4,
             "realtime_requirement": 3
         },
-
-
         "mobile_application": {
-
             "workloads": [
                 "Mobile Applications",
                 "Identity",
                 "Real-Time Access"
             ],
-
             "workload_strength": {
-
                 "mobile": 5,
                 "identity": 4,
                 "real_time": 5
-
             },
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 5
         },
-
-
         "utilities_platform": {
-
             "workloads": [
                 "Grid Operations",
                 "Customer Billing",
                 "Operational Monitoring"
             ],
-
             "workload_strength": {
-
                 "operational_data": 3,
                 "customer_profiles": 3
-
             },
-
             "database_intensity": 3,
             "operational_complexity": 3,
             "realtime_requirement": 2
         },
-
-
         "media_platform": {
-
             "workloads": [
                 "Ad Serving",
                 "Audience Data",
                 "Campaign Management"
             ],
-
             "workload_strength": {
-
                 "real_time": 3,
                 "operational_data": 3
-
             },
-
             "database_intensity": 3,
             "operational_complexity": 3,
             "realtime_requirement": 3
         },
-
-
         "logistics_platform": {
-
             "workloads": [
                 "Shipment Tracking",
                 "Route Optimization",
                 "Fleet Operations"
             ],
-
             "workload_strength": {
-
                 "real_time": 3,
                 "operational_data": 4
-
             },
-
             "database_intensity": 3,
             "operational_complexity": 4,
             "realtime_requirement": 3
         },
-
-
         "retail_platform": {
-
             "workloads": [
                 "Point of Sale",
                 "Inventory Management",
                 "Customer Loyalty"
             ],
-
             "workload_strength": {
-
                 "transaction_processing": 4,
                 "customer_profiles": 3
-
             },
-
             "database_intensity": 4,
             "operational_complexity": 3,
             "realtime_requirement": 3
         },
-
-
         "insurance_platform": {
-
             "workloads": [
                 "Policy Administration",
                 "Claims Processing"
             ],
-
             "workload_strength": {
-
                 "operational_data": 2
-
             },
-
             "database_intensity": 2,
             "operational_complexity": 2,
             "realtime_requirement": 1
         },
-
-
         "pharma_device_platform": {
-
             "workloads": [
                 "Manufacturing Operations",
                 "Supply Chain",
                 "Regulatory Data"
             ],
-
             "workload_strength": {
-
                 "operational_data": 2
-
             },
-
             "database_intensity": 2,
             "operational_complexity": 2,
             "realtime_requirement": 1
         },
-
-
         "telecom_platform": {
-
             "workloads": [
                 "Subscriber Data",
                 "Billing Systems",
                 "Network Usage Data"
             ],
-
             "workload_strength": {
-
                 "customer_profiles": 4,
                 "real_time": 4,
                 "operational_data": 4
-
             },
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 4
         },
-
-
         "media_entertainment_platform": {
-
             "workloads": [
                 "Content Delivery",
                 "Viewer Engagement Data",
                 "Personalization"
             ],
-
             "workload_strength": {
-
                 "real_time": 4,
                 "customer_profiles": 4,
                 "operational_data": 3
-
             },
-
             "database_intensity": 4,
             "operational_complexity": 4,
             "realtime_requirement": 4
         }
-
     }
 }

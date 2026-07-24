@@ -82,7 +82,28 @@ def is_excluded_provider(account_name):
 # =====================================================
 
 KEYWORD_FALSE_POSITIVE_EXCLUSIONS = {
-    "card": ["cardinal", "wildcard"]
+    "card": ["cardinal", "wildcard"],
+
+    # "media" is a substring of several common, unrelated words
+    # and corporate-structuring terms. Found via real accounts in
+    # a 9,758-account production file: "Remedial Construction
+    # Services" (re-MEDIA-l), "National Mediation Board"
+    # (MEDIA-tion), "Allegheny Intermediate Unit" and "Cooper's
+    # Hawk Intermediate Holding, LLC" (inter-MEDIA-te, a common
+    # legal/corporate-structuring term, not a media company).
+    "media": ["remedial", "mediation", "intermediate", "immedia"],
+
+    # "energy" is a substring of "Department of Energy" and
+    # "National Lab(oratory)" entities, which are federal
+    # government/research organizations, not utilities. Found
+    # via real accounts in a 9,758-account production file:
+    # "Department of the Treasury - Comptroller of the Currency"
+    # was a separate miss (no pattern match at all, not this
+    # exclusion), but "Department of Energy - Office of Energy
+    # Efficiency and Renewable Energy" and "Department of Energy
+    # - Oak Ridge National Lab" were both incorrectly tagged
+    # utilities_platform via this keyword.
+    "energy": ["department of energy", "national lab", "national laboratory"]
 }
 
 

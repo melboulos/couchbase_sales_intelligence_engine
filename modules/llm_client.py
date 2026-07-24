@@ -239,7 +239,7 @@ No additional text.
 
                 "max_gen_len":
 
-                    700,
+                    1500,
 
 
                 "temperature":

@@ -6,8 +6,17 @@ from datetime import datetime, timezone
 
 from modules.sales_intelligence_pipeline import validate_account
 
-LLM_INPUT_COST_PER_1K = 0.99
-LLM_OUTPUT_COST_PER_1K = 0.99
+# Confirmed wrong this session - was $0.99/1K (i.e. $990/million
+# tokens), off by ~1,375x. Real AWS Bedrock on-demand pricing for
+# Meta Llama 70B-class models (meta.llama3-70b-instruct-v1:0) is
+# approximately $0.72 per MILLION tokens, input and output at the
+# same rate, as of July 2026 (see https://aws.amazon.com/bedrock/pricing/
+# - Meta section - and cross-referenced against independent trackers).
+# $0.72/M = $0.00072/1K. If AWS Bedrock console/billing shows a
+# different number for your account/region, trust that over this
+# comment and update these constants accordingly.
+LLM_INPUT_COST_PER_1K = 0.00072
+LLM_OUTPUT_COST_PER_1K = 0.00072
 
 
 LLM_RESULTS_FILE = (
@@ -125,6 +134,86 @@ def generate_token_summary(llm_results):
 # FALSE, save, and re-run. Only that account is re-sent.
 # =====================================================
 
+import concurrent.futures
+
+# Bedrock calls are independent network round trips, so run
+# them concurrently rather than one at a time - sequential
+# execution across hundreds of accounts could take well over
+# an hour. Keep this modest; raise it only if you've confirmed
+# Bedrock isn't throttling you at this concurrency.
+MAX_WORKERS = 5
+
+# Save progress to LLM_RESULTS_FILE every N completed accounts,
+# not just once at the very end. Without this, a crash or
+# dropped connection partway through a large run (e.g. ~500
+# accounts) loses ALL progress, since nothing was written to
+# disk until the whole batch finished.
+CHECKPOINT_EVERY = 25
+
+
+def _run_llm_batch(rows, kept_df, existing_columns):
+    """
+    Runs validate_account concurrently across `rows`, writing
+    an incremental checkpoint (kept_df + completed results so
+    far) to LLM_RESULTS_FILE every CHECKPOINT_EVERY completions.
+    Returns the full list of new results once all rows are done.
+    """
+
+    total = len(rows)
+    new_results = []
+    completed = 0
+
+    with concurrent.futures.ThreadPoolExecutor(
+        max_workers=min(MAX_WORKERS, max(1, total))
+    ) as executor:
+
+        futures = {
+            executor.submit(validate_account, row): row
+            for row in rows
+        }
+
+        for future in concurrent.futures.as_completed(futures):
+
+            row = futures[future]
+            account_name = row.get("Account Name", "Unknown")
+
+            try:
+                result = future.result()
+                result["Account Name"] = account_name
+            except Exception as e:
+                result = {
+                    "Account Name": account_name,
+                    "llm_validation": False,
+                    "llm_error": f"Worker exception: {e}"
+                }
+
+            new_results.append(result)
+            completed += 1
+
+            print(f"[{completed}/{total}] {account_name} - done")
+
+            if completed % CHECKPOINT_EVERY == 0 or completed == total:
+
+                partial_df = pd.DataFrame(new_results)
+
+                if kept_df is not None and len(kept_df) > 0:
+                    combined = pd.concat(
+                        [kept_df, partial_df], ignore_index=True
+                    )
+                else:
+                    combined = partial_df
+
+                combined = combined.loc[:, ~combined.columns.duplicated()]
+                combined.to_excel(LLM_RESULTS_FILE, index=False)
+
+                print(
+                    f"  Checkpoint saved: {completed}/{total} "
+                    f"complete ({LLM_RESULTS_FILE})"
+                )
+
+    return new_results
+
+
 def validate_accounts(accounts):
 
     print(
@@ -216,35 +305,14 @@ def validate_accounts(accounts):
             f"{len(rows_to_run)}"
         )
 
-
-        new_results = []
-
-        for i, row in enumerate(rows_to_run):
-
-            account_name = row.get(
-                "Account Name",
-                "Unknown"
-            )
-
-            print(
-                f"[{i+1}/{len(rows_to_run)}] {account_name}"
-            )
-
-            result = validate_account(row)
-
-            result["Account Name"] = account_name
-
-            new_results.append(result)
-
-            print(
-                f"Completed {i+1}/{len(rows_to_run)}"
-            )
-
-
         kept_df = (
             pd.DataFrame(already_done_rows)
             if already_done_rows
             else pd.DataFrame(columns=existing_results.columns)
+        )
+
+        new_results = _run_llm_batch(
+            rows_to_run, kept_df, existing_results.columns
         )
 
         new_df = (
@@ -276,55 +344,19 @@ def validate_accounts(accounts):
     else:
 
         print(
-            "Running sequential LLM validation..."
+            "Running threaded LLM validation "
+            f"(max {MAX_WORKERS} concurrent, "
+            f"checkpoint every {CHECKPOINT_EVERY})..."
         )
-
-
-        results = []
-
 
         start_time = time.time()
 
+        rows = [row for _, row in llm_accounts.iterrows()]
 
-        for idx, row in llm_accounts.iterrows():
+        results = _run_llm_batch(rows, None, None)
 
-            account_name = row.get(
-                "Account Name",
-                "Unknown"
-            )
-
-
-            print(
-                f"[{idx+1}/{total}] {account_name}"
-            )
-
-
-            result = validate_account(
-                row
-            )
-
-
-            result["Account Name"] = account_name
-
-
-            results.append(
-                result
-            )
-
-
-            elapsed = (
-                time.time()
-                -
-                start_time
-            )
-
-
-            print(
-                f"Completed {idx+1}/{total} "
-                f"Elapsed {elapsed:.1f}s"
-            )
-
-
+        elapsed = time.time() - start_time
+        print(f"All {total} accounts complete. Elapsed {elapsed:.1f}s")
 
         llm_results = pd.DataFrame(
             results

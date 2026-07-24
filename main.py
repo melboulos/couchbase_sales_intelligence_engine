@@ -20,8 +20,8 @@ from pipeline.intelligence_export_pipeline import export_account_intelligence
 print("Starting Couchbase Sales Intelligence Engine")
 print("-------------------------------------------")
 
-INPUT_FILE = "input/Enterprise_East_Account_List.xlsx"
-OUTPUT_FILE = "output/Enterprise_East_Scored.xlsx"
+INPUT_FILE = "input/report1784905185024.xls"
+OUTPUT_FILE = "output/report1784905185024_Scored.xlsx"
 
 
 # =====================================================
@@ -215,10 +215,14 @@ llm_merge_columns = [
     "technical_risks_to_validate",
     "discovery_progression",
     "missing_information",
+    "llm_specific_fact",
+    "llm_company_recognized",
+    "llm_recognition_verified",
     "llm_workload_score",
     "llm_realtime_score",
     "llm_complexity_score",
     "llm_total_score",
+    "llm_score_capped",
     "llm_score_reasoning"
 ]
 
