@@ -98,3 +98,226 @@ This feature is committed with the bug openly documented in the commit message. 
 2. **Build the classification pre-pass**, once the independent scoring is trustworthy — a cheap LLM call for the ~6,000 currently-unmatched accounts, returning `workload_profile` guess, `excluded_category` flag, and `confidence`, feeding the existing deterministic scoring exactly as a real pattern match would. Confidence gating is essential here: a low-confidence guess should leave the account unmatched (current default behavior), not introduce a false signal.
 3. **Confirm real Bedrock pricing** against an actual bill or AWS console access, and correct the hardcoded `$0.99/1K` constant in `pipeline/llm_validation_pipeline.py` if it's confirmed inaccurate — this affects the trustworthiness of every cost figure the system has reported.
 4. **Re-run the full 6,701-account production pipeline** once the above are resolved, to see the real, current match rate and cost at scale — not yet done this session.
+
+---
+
+## Follow-up (new session, same date)
+
+A prior version of this document/session believed a second fix — removing
+`Business Model`/`Observed Workloads` from the scoring section and adding
+contrastive calibration examples plus an `llm_company_recognized` flag —
+had already been saved to `modules/llm_prompt_builder.py`. On starting a
+fresh session and cloning the repo directly from GitHub, that fix was
+**not actually present** in the committed file; only the first (already
+confirmed-failed) fix was there. The likely cause is an edit that was
+never saved/committed before a test was run against it, not `__pycache__`
+staleness (no `__pycache__` directories exist in a fresh clone anyway).
+
+That fix has now been implemented for real, in this session, in
+`modules/llm_prompt_builder.py`:
+- `INDEPENDENT SCORE` now uses ONLY the Account Name — Industry, Business
+  Model, and Observed Workloads are explicitly excluded from this section
+  (they remain used by the other, unaffected qualitative sections).
+- Added contrastive calibration examples (small regional bank vs. global
+  real-time trading platform, both "financial services").
+- Added a required `llm_company_recognized` boolean — the model must
+  name a concrete fact about the specific company to set this true, and
+  is instructed to score conservatively/low (5-15 / 0-10 / 0-10) if it
+  cannot.
+- `modules/sales_intelligence_pipeline.py` now validates
+  `llm_company_recognized` is present and boolean-typed as part of
+  `validate_independent_score()`.
+- `modules/llm_client.py` `max_gen_len` increased from 700 to 1500,
+  since the longer prompt/schema is a plausible contributor to the
+  Netspend JSON truncation error observed earlier this session.
+- `test_llm_validation.py` now includes the `FORCE_LLM_OVERRIDE`
+  monkeypatch of `deterministic_gate.deterministic_gate` (test-process
+  only, real gate file untouched) so United Community Bank, Members 1st
+  Federal Credit Union, and Trumid Financial are forced through the LLM
+  regardless of gate outcome, for calibration testing.
+
+**This has NOT been tested against the live model** — this session's
+sandbox has no AWS credentials/`boto3` and cannot call Bedrock. Someone
+needs to pull this branch and run `test_llm_validation.py` locally to
+confirm whether `llm_total_score` actually discriminates now (in
+particular, whether United Community Bank drops out of the ~70-80 band
+it previously converged into). If it still doesn't discriminate even
+confirmed running against this exact code, treat it as a likely model
+capability limit (Llama 3 70B may not reliably self-report "I don't
+recognize this company") rather than a prompt-wording problem, and
+move to enforcing the conservative cap in code — e.g., in
+`validate_independent_score()`, raise or clamp when
+`llm_company_recognized` is `false` but sub-scores exceed the
+conservative band — rather than relying on the prompt alone.
+
+---
+
+## Session: July 25, 2026 — Calibration confirmed, cap enforcement added, real production run, five real bugs found
+
+### Independent LLM scoring: confirmed fixed, then hardened further
+
+Ran `test_llm_validation.py` live against Bedrock. The July 24 fix
+worked partially — Netspend/Trumid/UCB stopped converging to identical
+scores, but `llm_company_recognized` was still not trustworthy: Trumid
+claimed `false` and said "I score conservatively" in its own reasoning,
+then returned 60/100 anyway — well above the mandated <30 ceiling. The
+model can articulate the calibration rule but doesn't reliably act on
+it numerically, confirming the design doc's own predicted fallback.
+
+**Two structural (code-enforced, not prompt-only) fixes added:**
+
+1. **`enforce_company_recognition_cap()`** in
+   `sales_intelligence_pipeline.py` — when recognition isn't verified,
+   sub-scores are clamped in code to workload≤15/realtime≤10/
+   complexity≤10 and `llm_total_score` is recomputed, regardless of
+   what the model returned. Sets `llm_score_capped` so capped rows are
+   visible, not silently rewritten.
+
+2. **`llm_specific_fact` + `validate_recognition_evidence()`** — the
+   model must now state one concrete, checkable fact about the named
+   company (with explicit good/bad examples in the prompt); a stoplist
+   of generic phrases (`"as a fintech company"`, `"based on my
+   knowledge of"`, `"typically"`, etc.) determines
+   `llm_recognition_verified`, which is what the cap actually keys off
+   — not the model's raw self-report. Confirmed via live test: Netspend
+   went from "as a FinTech company, X typically has..." (unverified,
+   would now be capped) to a real fact ("prepaid card platform owned by
+   Global Payments, several million cardholders" — verified, scored on
+   its own merit).
+
+**Known remaining limitation, not fixed:** `llm_specific_fact` passing
+the generic-phrase check doesn't mean it's *true*. Live production run
+caught BayMark Health Services (a real opioid-treatment provider)
+described as "a healthcare technology company providing patient
+engagement and data analytics solutions" — a confident, specific,
+completely fabricated fact. A cluster of ~12 regional healthcare
+systems (Beaumont Health, Spectrum Health, Palmetto Health, etc.) also
+converged to an identical 25/20/20=65, this time using real facts
+worded distinctly per account — the model found a new way to satisfy
+the fact-check without actually differentiating. Neither is currently
+catchable in code without external fact verification. Mitigated in
+practice by `build_ae_call_list.py` never surfacing these fields to
+reps — they exist for internal COI-comparison/gap-finding only.
+
+### Real Bedrock pricing corrected
+
+`LLM_INPUT_COST_PER_1K` / `LLM_OUTPUT_COST_PER_1K` in
+`pipeline/llm_validation_pipeline.py` were `0.99` (i.e. $990/million
+tokens) — off by ~1,375x versus the real on-demand rate for Llama
+70B-class models (~$0.72/million, confirmed via web search against
+AWS's pricing page and independent trackers). Corrected to `0.00072`.
+The README's previous "~$463 for 350 accounts" cost claim was itself a
+symptom of this bug and is corrected below.
+
+### HTML-disguised-as-.xls loader fix
+
+The real account export (`report<timestamp>.xls`, a Salesforce report
+download) is not a real Excel binary — it's an HTML `<table>` saved
+with a `.xls` extension, a common export quirk. `pipeline/loader.py`
+now falls back from `pd.read_excel` to `pd.read_html` automatically
+when the content looks like HTML, rather than raising an unhelpful
+"Excel file format cannot be determined" error. Added `lxml` to
+`requirements.txt` for the HTML parser.
+
+### company_patterns.json coverage gaps found via the real 9,758-account file
+
+Built `precursor_review.py` (free, no LLM calls — runs enrichment/
+scoring/gate only) to see how many accounts would qualify before
+spending anything. Result on the real file: 513/9,758 (5.2%) would go
+to the LLM; 92.6% landed in Tier 4 Monitor. Sampling Tier 4 (via
+`review_tier4_full.py`, `review_tier4_sample.py`,
+`analyze_partial_signal_distribution.py`,
+`near_threshold_differential.py`, `vertical_laggard_check.py`, all new
+this session) surfaced real, concrete misses:
+
+- **Elephant-company gap**, same failure mode as the LLM calibration
+  bug, just on the deterministic side: `insurance_platform`,
+  `pharma_device_platform`, and `utilities_platform` apply a single
+  flat rating regardless of company scale. New York Life, HCC
+  Insurance Holdings, Novartis, Teva, Alexion, Westar Energy, and
+  Mitsubishi Electric Power Products (verified via web research) were
+  scoring identically to small regional/long-tail companies in the
+  same vertical. Added as `known_companies` overrides — the long-tail
+  default is left untouched since it may be genuinely correct for most
+  of that population.
+- **Keyword false positives** in `company_intelligence.py`'s
+  `KEYWORD_FALSE_POSITIVE_EXCLUSIONS` (the same mechanism added July 24
+  for "card"/"capital"): `"media"` was matching inside "Remedial
+  Construction Services," "National Mediation Board," "Allegheny
+  Intermediate Unit," and "Immedia Semiconductor" — none are media
+  companies. `"energy"` was matching "Department of Energy" and
+  "National Lab(oratory)" entities, incorrectly giving federal
+  government/research organizations a utilities score boost. Both
+  fixed; real energy/media companies confirmed still match correctly.
+
+### Real production run: 9,758 accounts, three more bugs found live
+
+Ran the real file end to end. Final numbers: 513/513 LLM-validated,
+$0.9839 actual cost (matches the corrected pricing estimate almost
+exactly), 15 industries, 9,755 accounts after removing 3 genuine
+source-data duplicate rows. Three additional bugs were found and fixed
+mid-run, all from real data, not theoretical:
+
+1. **Sequential LLM calls → threaded.** `validate_accounts()` in
+   `pipeline/llm_validation_pipeline.py` ran one account at a time;
+   ~513 accounts would have taken over an hour. Rewritten with
+   `ThreadPoolExecutor` (5 concurrent), cutting the real run to ~28
+   minutes. Added incremental checkpointing (every 25 completions
+   instead of only at the very end) so a crash or dropped connection
+   mid-run doesn't lose completed work — this mattered in practice,
+   since the first full run did crash (see #2 below) after all 513
+   calls had already succeeded.
+2. **Merge crash on duplicate Account Name.**
+   `llm_results.set_index("Account Name").map(...)` requires a unique
+   index; this file has genuine duplicate names for different accounts
+   (confirmed earlier: two different "United Community Bank" entries
+   with different CB Account Numbers). Fixed by deduplicating before
+   building the lookup index. Same root cause independently caused a
+   **second** bug in `main.py`'s own final merge
+   (`accounts.merge(..., on="Account Name", how="left")`) — a
+   many-to-many join on a repeated key was silently inflating row
+   count (9758 → 9760, confirmed and reproduced exactly). Both fixed
+   the same way: dedupe the right side before merging. Known
+   accepted limitation either way: two different accounts sharing an
+   exact name will receive the same merged LLM result.
+3. **Two real, over-strict validation rules rejected correct LLM
+   output** for 10/513 accounts on the first full run:
+   - `validate_account_identity()` was comparing account names
+     case-and-whitespace-normalized but NOT punctuation-normalized;
+     the model consistently drops the trailing period after
+     abbreviations ("Inc." → "inc", "Limited." → "limited"), which was
+     being treated as a hallucinated identity mismatch rather than a
+     formatting difference. Fixed with a dedicated
+     `normalize_for_identity_match()` that also strips trailing
+     `.`/`,`.
+   - `validate_evidence_quality()`'s forbidden-buzzword list banned
+     the bare word `"enterprise"` — a single common word with
+     legitimate technical uses ("enterprise architecture,"
+     "enterprise-grade consistency"), unlike the other multi-word
+     phrases in the list (`"market leader"`, `"growth opportunity"`,
+     etc.). This was rejecting real, correct intelligence for
+     genuinely large accounts (NSA, Northrop Grumman) purely for using
+     an accurate word. Removed; the other seven items remain.
+   All 10 originally-rejected accounts were confirmed to pass after
+   the fixes and re-ran clean.
+
+### New files this session (all committed)
+
+`precursor_review.py`, `review_tier4_full.py`,
+`review_tier4_sample.py`, `analyze_partial_signal_distribution.py`,
+`near_threshold_differential.py`, `vertical_laggard_check.py` — none
+are part of the production pipeline; all are one-off analysis tools
+used to find the issues documented above, kept in the repo since
+they're reusable against any future account list.
+
+### What's safe
+
+Everything above is committed and pushed to `main`. The real
+9,758-account run completed successfully end to end:
+`output/report1784905185024_Scored.xlsx` (9,755 rows, deduplicated,
+verified no row-count drift from the original 9,758 load) and
+`output/AE_Call_List.xlsx` (513 qualified accounts, correct numbers
+confirmed) are both real, correct deliverables — not the stale
+6,701-account/320-account version that was accidentally rebuilt once
+mid-session from an un-updated `build_ae_call_list.py` before being
+caught and corrected.

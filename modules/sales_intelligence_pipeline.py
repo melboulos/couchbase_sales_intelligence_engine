@@ -154,6 +154,22 @@ def normalize_text(value):
     return re.sub(r"\s+", " ", str(value).lower()).strip()
 
 
+def normalize_for_identity_match(value):
+    """
+    Like normalize_text, but also strips trailing periods/commas.
+    Confirmed via real production data: the model consistently
+    drops the trailing period after abbreviations when restating
+    an account name (e.g. "Aegis Therapies, Inc." -> "aegis
+    therapies, inc", "Sandals Resorts International Limited." ->
+    "sandals resorts international limited"). That's a spurious
+    formatting difference, not a genuine identity mismatch, and
+    was causing real, correctly-identified accounts to be
+    rejected and lose their LLM intelligence entirely.
+    """
+    text = normalize_text(value)
+    return re.sub(r"[.,]+$", "", text).strip()
+
+
 # =====================================================
 # HALLUCINATION CHECK
 # =====================================================
@@ -388,8 +404,8 @@ def validate_discovery_progression(result):
 # =====================================================
 
 def validate_account_identity(result, account_name):
-    returned = normalize_text(result.get("account_name", ""))
-    expected = normalize_text(account_name)
+    returned = normalize_for_identity_match(result.get("account_name", ""))
+    expected = normalize_for_identity_match(account_name)
 
     if returned != expected:
         raise ValueError(
@@ -405,7 +421,13 @@ def validate_account_identity(result, account_name):
 
 def validate_evidence_quality(result):
     forbidden = [
-        "enterprise",
+        # "enterprise" removed - confirmed via real production
+        # data that it's a single common word with legitimate
+        # technical uses ("enterprise architecture", "enterprise-
+        # grade consistency"), unlike the multi-word phrases
+        # below which are reliable generic-filler signals. It was
+        # incorrectly rejecting real, valid intelligence for
+        # genuinely large accounts (NSA, Northrop Grumman).
         "large company",
         "market leader",
         "industry leader",

@@ -20,7 +20,7 @@ def checkpoint(msg):
     print(f">>> CHECKPOINT: {msg}", flush=True)
 
 
-INPUT_FILE = "output/Enterprise_East_Scored.xlsx"
+INPUT_FILE = "output/report1784905185024_Scored.xlsx"
 OUTPUT_FILE = "output/AE_Call_List.xlsx"
 
 

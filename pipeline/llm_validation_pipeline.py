@@ -421,9 +421,25 @@ def validate_accounts(accounts):
 
     # ==========================================
     # MERGE BACK BY ACCOUNT NAME
+    #
+    # KNOWN LIMITATION: this file has duplicate Account Name
+    # values for genuinely different accounts (e.g. two
+    # different "United Community Bank" entries with
+    # different CB Account Numbers, found earlier this
+    # session). Since the merge key here is Account Name, not
+    # a unique account ID, .map() requires a unique index -
+    # drop_duplicates(keep="first") avoids the crash, at the
+    # cost of both accounts sharing a name receiving the same
+    # merged LLM result (whichever was processed first). This
+    # is a pre-existing constraint of using Account Name as
+    # the join key, not something introduced here - a real
+    # fix would require joining on a unique ID (e.g. CB
+    # Account Number) instead, if one is reliably present.
     # ==========================================
 
-    llm_results_indexed = llm_results.set_index(
+    llm_results_indexed = llm_results.drop_duplicates(
+        subset="Account Name", keep="first"
+    ).set_index(
         "Account Name",
         drop=False
     )

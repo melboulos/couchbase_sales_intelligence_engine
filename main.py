@@ -235,8 +235,25 @@ print("\nLLM merge columns:")
 for c in llm_merge_columns:
     print("-", c)
 
+# KNOWN LIMITATION: Account Name is not a unique key in this
+# file (confirmed: duplicate names exist for genuinely
+# different accounts, e.g. two different "United Community
+# Bank" entries). A plain merge(how="left", on="Account Name")
+# is a many-to-many join when a name repeats on BOTH sides,
+# which silently INFLATES row count (2 accounts named "X" x 2
+# LLM-result rows named "X" = 4 output rows instead of 2) -
+# this is very likely the cause of a real row-count mismatch
+# found in production (9758 accounts loaded -> 9760 in final
+# output). Deduping the right side first guarantees the merge
+# can only add columns, never rows - at the same known cost as
+# elsewhere in this codebase: duplicate-named accounts share
+# whichever LLM result was processed/kept first.
+validated_llm_accounts_deduped = validated_llm_accounts.drop_duplicates(
+    subset="Account Name", keep="first"
+)
+
 accounts = accounts.merge(
-    validated_llm_accounts[llm_merge_columns],
+    validated_llm_accounts_deduped[llm_merge_columns],
     on="Account Name",
     how="left"
 )

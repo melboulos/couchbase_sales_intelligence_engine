@@ -40,6 +40,18 @@ Deterministic Gate (modules/deterministic_gate.py)
    +---------+---------+
    |                   |
   SKIP        LLM Intelligence Generation
+              (single call, per qualifying account):
+                - Qualitative: engineering implications,
+                  Couchbase POV, discovery questions
+                - Independent score: llm_total_score, scored
+                  blind to COI/tier/Industry/workloads, using
+                  ONLY the account name + the model's own
+                  knowledge. Never blended into overall_coi —
+                  exists purely to compare against it and
+                  surface company_patterns.json coverage gaps.
+                  Code-enforced conservative cap applied when
+                  the model can't produce a genuine, specific,
+                  checkable fact about the named company.
                        |
                        v
               LLM Output Validation
@@ -63,7 +75,7 @@ pip install -r requirements.txt
 
 **AWS credentials** — the pipeline calls Amazon Bedrock (`meta.llama3-70b-instruct-v1:0`) via `boto3`. Configure credentials with access to Bedrock in your environment (`aws configure`, environment variables, or an assumed role) before running `main.py`.
 
-**Input data** — `input/` is gitignored, since account lists typically contain sensitive customer data. Place your own Salesforce account export at `input/Enterprise_East_Account_List.xlsx` (or update `INPUT_FILE` in `main.py` to point elsewhere). Expected columns include at minimum `Account Name`.
+**Input data** — `input/` is gitignored, since account lists typically contain sensitive customer data. Update `INPUT_FILE` in `main.py` to point at your own Salesforce export. Expected columns include at minimum `Account Name` — everything else is read with safe fallbacks and defaults to `"Unknown"` if missing, so a lean export (just name/owner/state/type/dates) works fine. `pipeline/loader.py` also auto-detects and correctly parses Salesforce report exports saved with a `.xls` extension that are actually HTML tables internally (a common export quirk) — no manual conversion needed.
 
 ## Running
 
@@ -71,7 +83,13 @@ pip install -r requirements.txt
 ```bash
 python main.py
 ```
-⚠️ **This calls Bedrock and costs real money.** A recent full run against ~6,700 accounts routed 350 to the LLM at ~1,336 tokens/account average, totaling ~$463. Cost scales with how many accounts clear the gate — check `LLM_THRESHOLD` in `modules/deterministic_gate.py` before running against a new dataset.
+⚠️ **This calls Bedrock and costs real money**, though less than you'd think — a real production run against 9,758 accounts routed 513 to the LLM at ~2,663 tokens/account average, totaling **$0.98** (confirmed against actual Bedrock billing-rate pricing, not estimated). LLM calls run concurrently (5 at a time) and checkpoint to disk every 25 completions, so a crash or dropped connection mid-run loses at most ~25 accounts' worth of progress, not the whole run. Cost scales with how many accounts clear the gate — check `LLM_THRESHOLD` in `modules/deterministic_gate.py`, or run `precursor_review.py` first (below) to see the real number before spending anything.
+
+**Precursor review** — runs enrichment/scoring/gate only, with zero LLM calls, so you can see exactly how many accounts would qualify (and an estimated cost) before running the real thing:
+```bash
+python precursor_review.py   # edit INPUT_FILE at the top first
+```
+If a large fraction of accounts land in Tier 4 Monitor, `review_tier4_full.py`, `review_tier4_sample.py`, `analyze_partial_signal_distribution.py`, `near_threshold_differential.py`, and `vertical_laggard_check.py` are one-off tools (not part of the pipeline itself) for investigating whether that's genuine low-fit or a `data/company_patterns.json` coverage gap — see the July 25 section of `docs/Couchbase_SIP_Design_Doc_Update_2026-07-24.md` for how they were used to find real gaps in a production file.
 
 **Smoke test** — re-runs enrichment, scoring, and the LLM against a small hardcoded set of accounts, without needing a full run first:
 ```bash
@@ -96,12 +114,18 @@ streamlit run app.py
 
 | File | Contents |
 |---|---|
-| `Enterprise_East_Scored.xlsx` | Full account list with COI, tier, and validated LLM intelligence merged in |
+| `<input-name>_Scored.xlsx` (name matches `OUTPUT_FILE` in `main.py`) | Full account list with COI, tier, and validated LLM intelligence merged in — including `llm_total_score` (independent LLM score, for comparison against `overall_coi` only, never blended into it), `llm_specific_fact`, `llm_company_recognized`, `llm_recognition_verified`, `llm_score_capped` |
 | `account_intelligence.json` | Same data, shaped for the Streamlit dashboard |
-| `AE_Call_List.xlsx` | Formatted deliverable for AEs — Summary, Overview, Call Briefs |
-| `LLM_Validated_Accounts.xlsx` | Full unfiltered LLM output, including failed/unvalidated rows and error messages |
-| `llm_validation_results.xlsx` | Checkpoint file used for the per-row re-run logic above |
-| `llm_token_summary.xlsx` | Token counts and cost for the most recent LLM run |
+| `AE_Call_List.xlsx` | Formatted deliverable for AEs — Summary, Overview, Call Briefs. Deliberately excludes the independent-scoring fields above; those are for internal gap-finding, not seller-facing |
+| `llm_validation_results.xlsx` | Checkpoint file used for the per-row re-run logic below. Updated incrementally every 25 completions during a run, not just at the end |
+| `llm_token_summary.xlsx` | Token counts and real cost for the most recent LLM run |
+| `precursor_review.xlsx`, `tier4_full_review.xlsx`, `tier4_sample_for_review.xlsx`, `near_threshold_accounts.xlsx`, `vertical_laggard_sample.xlsx` | Outputs of the analysis scripts described above — not pipeline outputs, just working files for pattern-coverage investigation |
+
+## Known limitations
+
+- **Account Name is not a unique key.** This dataset has confirmed genuine duplicate names for different accounts (e.g. two different "United Community Bank" entries with different CB Account Numbers). Anywhere a merge/lookup is keyed on Account Name, duplicate-named accounts will receive the same merged LLM result (whichever was processed first) rather than their own. A real fix would require joining on a unique account ID instead, if your export reliably includes one.
+- **`llm_specific_fact` passing validation doesn't mean it's true.** `validate_recognition_evidence()` only checks that the stated fact isn't generic industry-template language — it can't verify factual accuracy without an external lookup. Confirmed in production: BayMark Health Services (a real addiction-treatment provider) was described as "a healthcare technology company" — a fabricated but specific-sounding fact that passed validation. Mitigated by `build_ae_call_list.py` never surfacing these fields to reps; treat the independent score as directionally useful in aggregate, not verified per account.
+- **Some verticals in `company_patterns.json` apply a flat rating regardless of company scale**, the same failure mode the LLM calibration fix addresses, just on the deterministic side. Elephant-company overrides exist for a handful of verified large accounts (see `known_companies`); the long-tail default for `insurance_platform`/`pharma_device_platform`/`utilities_platform` is untouched and may need similar treatment as more gaps are found.
 
 ## Project structure
 
