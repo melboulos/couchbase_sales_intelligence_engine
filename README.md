@@ -14,6 +14,12 @@ The COI (Couchbase Opportunity Index) score is only a prioritization mechanism. 
 
 The deterministic pipeline decides *which* accounts qualify. The LLM never scores or qualifies accounts — it generates qualitative seller intelligence for accounts the deterministic engine has already selected.
 
+<p align="center">
+  <img src="docs/pipeline_flow.svg" alt="Pipeline flow: Salesforce account list, enrichment and classification, COI scoring, deterministic gate, LLM intelligence generation with independent scoring, validation gates, and final merged output" width="560">
+</p>
+
+Teal = fully deterministic, no LLM cost. Purple = LLM-involved. The independent LLM score sits alongside `overall_coi` for comparison only — it's never blended into it, and a code-enforced cap kicks in whenever the model can't produce a genuine, checkable fact about the named company (see Known Limitations below).
+
 ## Architecture
 
 ```

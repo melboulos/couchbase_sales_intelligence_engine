@@ -1,0 +1,96 @@
+<svg width="100%" viewBox="0 0 680 832" xmlns="http://www.w3.org/2000/svg" role="img">
+<title>Couchbase Sales Intelligence Engine — decision pipeline</title>
+<desc>Flowchart from raw Salesforce account list through enrichment, COI scoring, a deterministic gate that either skips an account or sends it to the LLM for qualitative intelligence plus an independent, capped score, then validation and final merge into the scored account list and AE call list.</desc>
+<defs>
+<marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+<path d="M2 1L8 5L2 9" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="arrow-head"/>
+</marker>
+</defs>
+<style>
+text { font-family: -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+.th { font-size: 14px; font-weight: 500; }
+.ts { font-size: 12px; font-weight: 400; }
+.box { stroke-width: 0.5; }
+.gbox { fill: #F1EFE8; stroke: #5F5E5A; }
+.gbox .th { fill: #444441; }
+.gbox .ts { fill: #5F5E5A; }
+.tbox { fill: #E1F5EE; stroke: #0F6E56; }
+.tbox .th { fill: #085041; }
+.tbox .ts { fill: #0F6E56; }
+.pbox { fill: #EEEDFE; stroke: #534AB7; }
+.pbox .th { fill: #3C3489; }
+.pbox .ts { fill: #534AB7; }
+.conn { stroke: #888780; stroke-width: 1; }
+.arrow-head { stroke: #888780; }
+@media (prefers-color-scheme: dark) {
+  .gbox { fill: #2C2C2A; stroke: #B4B2A9; }
+  .gbox .th { fill: #D3D1C7; }
+  .gbox .ts { fill: #B4B2A9; }
+  .tbox { fill: #085041; stroke: #5DCAA5; }
+  .tbox .th { fill: #9FE1CB; }
+  .tbox .ts { fill: #5DCAA5; }
+  .pbox { fill: #3C3489; stroke: #AFA9EC; }
+  .pbox .th { fill: #CECBF6; }
+  .pbox .ts { fill: #AFA9EC; }
+  .conn { stroke: #888780; }
+  .arrow-head { stroke: #888780; }
+}
+</style>
+
+<line x1="340" y1="96" x2="340" y2="156" class="conn" marker-end="url(#arrow)"/>
+<line x1="340" y1="212" x2="340" y2="272" class="conn" marker-end="url(#arrow)"/>
+<line x1="340" y1="328" x2="340" y2="388" class="conn" marker-end="url(#arrow)"/>
+<line x1="340" y1="444" x2="205" y2="504" class="conn" marker-end="url(#arrow)"/>
+<line x1="340" y1="444" x2="445" y2="504" class="conn" marker-end="url(#arrow)"/>
+<line x1="205" y1="560" x2="205" y2="736" class="conn" marker-end="url(#arrow)"/>
+<line x1="445" y1="560" x2="445" y2="620" class="conn" marker-end="url(#arrow)"/>
+<line x1="445" y1="676" x2="445" y2="736" class="conn" marker-end="url(#arrow)"/>
+
+<g class="box gbox">
+<rect x="190" y="40" width="300" height="56" rx="8"/>
+<text class="th" x="340" y="62" text-anchor="middle">Salesforce account list</text>
+<text class="ts" x="340" y="82" text-anchor="middle">9,758 raw accounts</text>
+</g>
+
+<g class="box tbox">
+<rect x="190" y="156" width="300" height="56" rx="8"/>
+<text class="th" x="340" y="178" text-anchor="middle">Enrichment &amp; classification</text>
+<text class="ts" x="340" y="198" text-anchor="middle">Matches company_patterns.json</text>
+</g>
+
+<g class="box tbox">
+<rect x="190" y="272" width="300" height="56" rx="8"/>
+<text class="th" x="340" y="294" text-anchor="middle">COI scoring engine</text>
+<text class="ts" x="340" y="314" text-anchor="middle">Weighted signals, 0-100 score</text>
+</g>
+
+<g class="box tbox">
+<rect x="190" y="388" width="300" height="56" rx="8"/>
+<text class="th" x="340" y="410" text-anchor="middle">Deterministic gate</text>
+<text class="ts" x="340" y="430" text-anchor="middle">Score clears threshold?</text>
+</g>
+
+<g class="box tbox">
+<rect x="120" y="504" width="170" height="56" rx="8"/>
+<text class="th" x="205" y="526" text-anchor="middle">Skip</text>
+<text class="ts" x="205" y="546" text-anchor="middle">No LLM cost (94.8%)</text>
+</g>
+
+<g class="box pbox">
+<rect x="330" y="504" width="230" height="56" rx="8"/>
+<text class="th" x="445" y="526" text-anchor="middle">LLM intelligence</text>
+<text class="ts" x="445" y="546" text-anchor="middle">Notes + independent score</text>
+</g>
+
+<g class="box pbox">
+<rect x="330" y="620" width="230" height="56" rx="8"/>
+<text class="th" x="445" y="642" text-anchor="middle">Validation gates</text>
+<text class="ts" x="445" y="662" text-anchor="middle">Identity + evidence checks</text>
+</g>
+
+<g class="box gbox">
+<rect x="170" y="736" width="390" height="56" rx="8"/>
+<text class="th" x="365" y="758" text-anchor="middle">Scored account list + call list</text>
+<text class="ts" x="365" y="778" text-anchor="middle">9,755 accounts - 513 with LLM intelligence</text>
+</g>
+</svg>
