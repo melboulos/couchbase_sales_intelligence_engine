@@ -57,7 +57,17 @@ import re
 # =====================================================
 
 
-LLM_THRESHOLD = 50   # <-- NEEDS RECALIBRATION, see note below
+LLM_THRESHOLD = 40   # Lowered from 50 to match Tier 3's own COI
+                      # threshold (scoring_engine.py). The 50-point
+                      # gate was silently excluding accounts that
+                      # scoring_engine.py itself considers Tier 3
+                      # ("worth a look") - confirmed via
+                      # check_threshold_gap.py: 2,709 real accounts
+                      # (2,499 from the classification pre-pass, 210
+                      # pre-existing before this session touched
+                      # anything) were sitting at gate_score 40-49,
+                      # correctly Tier 3 by COI but never reaching
+                      # the LLM. Tier and gate should agree.
 
 
 LOW_PRIORITY_TIERS = [

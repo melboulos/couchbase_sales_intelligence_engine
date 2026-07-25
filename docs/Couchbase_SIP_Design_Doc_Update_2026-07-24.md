@@ -473,3 +473,112 @@ via test cases: an account with zero or one positive signal still
 correctly stays Tier 4 (34, 39); two positive signals now correctly
 cross into Tier 3 (44) where previously the same account would have
 scored only 35.
+
+---
+
+## Same-day follow-up: LLM_THRESHOLD recalibration and the second real intelligence run
+
+### Finding: classification-upgraded accounts almost never reached the LLM, despite qualifying by tier
+
+User asked directly: "is there a way to get more accurate scoring."
+After the classification pre-pass and scale-tier work above, a check
+of how many newly-classified accounts now qualify for the full
+intelligence call turned up 0 - despite thousands landing in Tier
+2/3. Root cause, found by reading `modules/deterministic_gate.py`
+directly rather than guessing: the gate requires `gate_score >= 50`
+(`LLM_THRESHOLD`), a HIGHER bar than Tier 3's own `overall_coi >= 40`
+(`scoring_engine.py`) - a mismatch that predates this session
+entirely (the constant already carried a `# <-- NEEDS
+RECALIBRATION` comment with no further note attached). For
+classification-pre-pass accounts specifically, `gate_score` is
+essentially just `overall_coi` (no keyword-match bonus, since a bare
+company name never contains literal strings like "cassandra" or
+"mongodb"), and their COI itself is capped low because the pre-pass
+never touches `engineering_signal`/`technology_score`/`company_size`
+- so they cluster tightly at 40-49, just under the old 50-point gate.
+
+Confirmed via `check_threshold_gap.py`: 3,537 accounts were Tier 3+
+by COI; 2,709-3,018 of those (depending on exact threshold/dedup
+pass) sat below the gate, unable to ever reach the LLM. Of those,
+**210 predate the classification pre-pass and this session
+entirely** - a real, pre-existing gap, not something introduced
+today. `LLM_THRESHOLD` lowered from 50 to 40 to match Tier 3
+exactly. Confirmed safe: `LOW_PRIORITY_TIERS` hard-stops Tier 4
+regardless of score, so this change cannot pull in low-quality
+accounts - it only affects Tier 1/2/3, which were already meant to
+be eligible.
+
+### A real bug found while building the verification scripts
+
+`check_new_llm_candidates.py` and `check_threshold_gap.py` both
+initially produced nonsensical results (a `gate_score` distribution
+of median 0, min -30, for accounts with `overall_coi >= 40` - a
+result that's mathematically impossible under the gate's own
+`score = coi + bonuses` formula). Root cause: the scored file already
+had `gate_score`/`run_llm` columns from the ORIGINAL `main.py` run.
+`pd.concat()` + `columns.duplicated()` keeps the FIRST occurrence
+when dropping duplicate column names - meaning the STALE value
+survived and the freshly-computed one was silently discarded, in
+both scripts. Fixed by dropping any pre-existing gate-result columns
+from the loaded dataframe before merging in the fresh computation,
+in both scripts. Confirmed via a minimal reproduction before and
+after the fix.
+
+### A concurrency-related crash, not a code bug
+
+At the user's request, `MAX_WORKERS` in
+`pipeline/llm_validation_pipeline.py` was raised from 5 to 8 for the
+new ~3,018-account run. This produced an immediate `zsh: segmentation
+fault` right as the thread pool started - not a Python exception,
+which points to the underlying `boto3`/SSL networking layer under
+concurrency rather than a bug in this codebase's own logic (5
+workers has now run cleanly across two full production runs, ~4,200
+real accounts combined, with zero crashes). Reverted to 5. Nothing
+was lost - the crash occurred before any new completions, so the
+checkpoint was untouched and the run resumed cleanly from the same
+point.
+
+### Workflow lesson: re-running classification_prepass.py is not the same as revalidating
+
+Mid-session, `classification_prepass.py` (the real, costly script)
+was run a second and third time to pick up improved guardrails,
+instead of the free `revalidate_classifications.py` built
+specifically for that purpose. This cost an additional real ~$3.59
+for a run that produced a WORSE (less-filtered) result than the free
+revalidation already sitting in the checkpoint, since the fresh run's
+own `validate_classification()` call only reflected whatever
+guardrail code was on disk AT THAT MOMENT - and overwrote the more
+current, already-revalidated checkpoint. Recovered for free by
+running `revalidate_classifications.py` again against the newest
+data. Documented here as a real, easy-to-make mistake: **only run
+`classification_prepass.py` again if the classification PROMPT
+itself changes (a genuinely new question to the LLM); if only the
+VALIDATION rules changed, `revalidate_classifications.py` gets the
+same benefit for free.**
+
+### Files added this stretch
+
+- `check_new_llm_candidates.py` - free, no-LLM-call check of exactly
+  how many accounts newly qualify for the full intelligence call,
+  beyond whatever is already in `llm_validation_results.xlsx`.
+- `check_threshold_gap.py` - free, broader check of the Tier-3-vs-
+  LLM_THRESHOLD gap across the whole file, used to find and size the
+  recalibration issue above before making the change.
+- `run_new_llm_candidates.py` - runs the real, full intelligence call
+  for newly-qualifying accounts, reusing `validate_accounts()`
+  directly (the same threaded/checkpointed function `main.py` uses)
+  so already-validated accounts are automatically skipped at zero
+  additional cost.
+
+### Second real intelligence run
+
+3,018 new accounts (2,808 from the classification pre-pass, 210
+pre-existing) qualified under the corrected threshold. Real
+confirmed cost estimate: ~$5.79 (consistent with the ~$0.72/million
+token real Bedrock rate). Run in progress at time of writing;
+spot-checked mid-run and showed the same healthy pattern as before -
+genuine "I don't recognize this company" conservative scores (Sqrrl
+Data LLC, ELOQUII, Wireless Environment LLC all scored 10/100 with
+no fabrication attempted) alongside accurate, specific recognized
+facts (Servicios Comerciales Amazon Mexico correctly identified as
+an Amazon subsidiary, Klarna's "$35 billion in transactions" figure).

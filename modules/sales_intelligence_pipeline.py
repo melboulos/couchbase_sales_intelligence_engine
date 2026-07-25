@@ -350,12 +350,56 @@ DEFUNCT_FACT_PATTERNS = [
 # fact) got forced into saas_platform; Marfrig Global Foods
 # (meatpacking, accurately identified) got forced into
 # retail_platform. The fact was right, the category was wrong.
+# Broadened twice more this session as new phrasing patterns were
+# found: CLEAResult Consulting -> utilities_platform, CRA
+# International -> saas_platform, PageGroup ("recruitment
+# consultancy") -> saas_platform, Defense Contract Management Agency
+# -> logistics_platform; then Brookings Institution/Boston Symphony
+# (nonprofit/policy/arts orgs) -> media_entertainment_platform,
+# Mad*Pow (design agency) -> saas_platform, Burns & McDonnell
+# (engineering/architecture/construction) -> utilities_platform,
+# Segal Group (benefits/HR consulting) -> insurance_platform,
+# BrightView (landscaping) / Duke Realty (REIT) -> logistics_platform.
 NON_FIT_INSTITUTION_KEYWORDS = [
     "university", "college", "school district", "law firm",
     "accounting firm", "staffing agency", "meatpacking",
     "meat packing", "engineering firm", "architecture firm",
     "religious organization", "government agency",
+    "consulting firm", "consultancy", "consulting services",
+    "recruitment consultancy", "recruitment agency",
+    "department of defense", "u.s. department", "federal agency",
+    "federal government",
+    "think tank", "public policy organization", "nonprofit",
+    "non-profit", "symphony orchestra", "orchestra",
+    "performing arts", "design agency", "construction company",
+    "real estate investment trust", "landscaping company",
+    "landscaping", "mortgage lender", "rating agency",
+    "credit rating",
 ]
+
+# Category-specific mismatches: a description clearly indicating a
+# physical-goods manufacturer doesn't fit a software category (3D
+# Systems, a 3D printer manufacturer, was forced into saas_platform)
+# and is questionable for a pure retail category (Corsicana Mattress,
+# a mattress manufacturer, was forced into retail_platform - it
+# makes the product, it doesn't operate a retail storefront/platform).
+# Also: Accudyne Industries (industrial valves/pressure regulators)
+# forced into pharma_device_platform, despite having nothing to do
+# with pharma or medical devices - "device" in the category name
+# apparently pattern-matched against unrelated industrial equipment.
+CATEGORY_SPECIFIC_MISMATCH_KEYWORDS = {
+    "saas_platform": [
+        "manufacturer", "manufactures", "produces machines",
+        "hardware company", "physical product", "3d printing",
+    ],
+    "retail_platform": [
+        "manufacturer", "manufactures",
+    ],
+    "pharma_device_platform": [
+        "industrial equipment", "flow control", "pressure regulators",
+        "valves", "industrial infrastructure",
+    ],
+}
 
 
 def validate_classification(result, valid_profiles):
@@ -377,7 +421,12 @@ def validate_classification(result, valid_profiles):
     )
 
     profile = result.get("llm_workload_profile", "none")
-    if not verified or profile not in valid_profiles or is_defunct or is_non_fit_institution:
+
+    category_mismatch_keywords = CATEGORY_SPECIFIC_MISMATCH_KEYWORDS.get(profile, [])
+    is_category_mismatch = any(keyword in fact for keyword in category_mismatch_keywords)
+
+    if not verified or profile not in valid_profiles or is_defunct or \
+       is_non_fit_institution or is_category_mismatch:
         result["llm_workload_profile"] = "none"
 
     # Scale tier only means anything if a real category was assigned

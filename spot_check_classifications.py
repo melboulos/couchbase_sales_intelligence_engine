@@ -28,8 +28,8 @@ INPUT_FILE = "output/report1784905185024_Scored_with_classification.xlsx"
 CHECKPOINT_FILE = "output/classification_prepass_results.xlsx"
 OUTPUT_FILE = "output/classification_spot_check_sample.xlsx"
 
-SAMPLE_SIZE = 40
-RANDOM_SEED = 42
+SAMPLE_SIZE = 60
+RANDOM_SEED = 99
 
 print(f"Loading: {INPUT_FILE}")
 accounts = pd.read_excel(INPUT_FILE)
@@ -53,7 +53,7 @@ upgraded["llm_specific_fact"] = upgraded["Account Name"].map(fact_by_name)
 sample_frames = []
 for tier in ["Tier 2 Strong Target", "Tier 3 Nurture", "Tier 4 Monitor"]:
     tier_pool = upgraded[upgraded["priority_tier"] == tier]
-    n = min(15 if tier != "Tier 4 Monitor" else 10, len(tier_pool))
+    n = min(25 if tier != "Tier 4 Monitor" else 10, len(tier_pool))
     if n > 0:
         sample_frames.append(tier_pool.sample(n=n, random_state=RANDOM_SEED))
 
