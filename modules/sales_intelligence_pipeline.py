@@ -642,12 +642,56 @@ def validate_llm_value(result):
 # COMPLETE VALIDATION
 # =====================================================
 
+def apply_narrative_caveat(result):
+    """
+    enforce_company_recognition_cap already gates the SCORE on
+    llm_recognition_verified - but engineering_implications and
+    couchbase_point_of_view are written from the upstream Industry/
+    Business Model/Workloads labels regardless of whether the model
+    actually recognizes the specific company. Found in production:
+    Simply Self Storage was correctly marked
+    llm_recognition_verified=False (score capped to 10), but its
+    engineering_implications still confidently described "the
+    logistics and transportation industry" - the assigned category
+    was treated as fact in the narrative even though the SAME
+    response admitted it doesn't know the company. This adds a
+    visible, code-enforced caveat whenever recognition isn't
+    verified, so a seller reading the narrative knows it's built on
+    an assigned category, not confirmed knowledge of this specific
+    company.
+    """
+    if result.get("llm_recognition_verified") is True:
+        result["llm_narrative_caveated"] = False
+        return result
+
+    CAVEAT = (
+        "NOTE: this account was not specifically recognized - the "
+        "analysis below is based on its assigned category, not "
+        "confirmed knowledge of this specific company. Verify "
+        "before using in outreach."
+    )
+
+    implications = result.get("engineering_implications", [])
+    if isinstance(implications, list):
+        result["engineering_implications"] = [CAVEAT] + implications
+    else:
+        result["engineering_implications"] = [CAVEAT, str(implications)]
+
+    couchbase_pov = result.get("couchbase_point_of_view", "")
+    result["couchbase_point_of_view"] = f"{CAVEAT} {couchbase_pov}"
+
+    result["llm_narrative_caveated"] = True
+
+    return result
+
+
 def validate_llm_output(result, raw_text, account_name):
     validate_required_fields(result)
     validate_non_empty_fields(result)
     validate_independent_score(result)
     validate_recognition_evidence(result)
     enforce_company_recognition_cap(result)
+    apply_narrative_caveat(result)
 
     combined_text = normalize_text(
         json.dumps(result) + str(raw_text)

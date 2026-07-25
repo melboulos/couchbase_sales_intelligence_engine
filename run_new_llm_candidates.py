@@ -100,6 +100,7 @@ llm_merge_columns = [
     "llm_complexity_score",
     "llm_total_score",
     "llm_score_capped",
+    "llm_narrative_caveated",
     "llm_score_reasoning"
 ]
 llm_merge_columns = [c for c in llm_merge_columns if c in validated_llm_accounts.columns]
