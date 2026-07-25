@@ -251,7 +251,7 @@ checkpoint("About to create Overview sheet")
 
 ws_overview = wb.create_sheet("Overview")
 
-overview_headers = ["Account Name", "COI Score", "Priority Tier", "Industry", "Business Model"]
+overview_headers = ["Account Name", "COI Score", "Priority Tier", "Industry", "Business Model", "Account Owner"]
 for col_idx, header in enumerate(overview_headers, start=1):
     cell = ws_overview.cell(row=1, column=col_idx)
     cell.value = header
@@ -260,9 +260,21 @@ for col_idx, header in enumerate(overview_headers, start=1):
     cell.alignment = Alignment(vertical="center")
 ws_overview.row_dimensions[1].height = 24
 
-overview_widths = {"A": 28, "B": 13, "C": 22, "D": 24, "E": 24}
+# Lets reps filter/sort by owner, tier, industry, or COI directly in
+# Excel instead of scrolling - dropdown arrows appear on every header.
+ws_overview.auto_filter.ref = f"A1:{get_column_letter(len(overview_headers))}1"
+
+overview_widths = {"A": 28, "B": 13, "C": 22, "D": 24, "E": 24, "F": 20}
 for col, width in overview_widths.items():
     ws_overview.column_dimensions[col].width = width
+
+# Priority tier -> fill color, for at-a-glance scanning without reading text
+TIER_FILLS = {
+    "Tier 1 Strategic": PatternFill(start_color="C0DD97", end_color="C0DD97", fill_type="solid"),
+    "Tier 2 Strong Target": PatternFill(start_color="B5D4F4", end_color="B5D4F4", fill_type="solid"),
+    "Tier 3 Nurture": PatternFill(start_color="FAC775", end_color="FAC775", fill_type="solid"),
+    "Tier 4 Monitor": PatternFill(start_color="D3D1C7", end_color="D3D1C7", fill_type="solid"),
+}
 
 account_brief_rows = []
 
@@ -270,9 +282,14 @@ for i, row in call_list.iterrows():
     excel_row = i + 2
     ws_overview.row_dimensions[excel_row].height = 20
     ws_overview.cell(row=excel_row, column=2, value=row.get("overall_coi", "")).font = BODY_FONT
-    ws_overview.cell(row=excel_row, column=3, value=row.get("priority_tier", "")).font = BODY_FONT
+    tier_cell = ws_overview.cell(row=excel_row, column=3, value=row.get("priority_tier", ""))
+    tier_cell.font = BODY_FONT
+    tier_fill = TIER_FILLS.get(row.get("priority_tier", ""))
+    if tier_fill:
+        tier_cell.fill = tier_fill
     ws_overview.cell(row=excel_row, column=4, value=row.get("industry", "")).font = BODY_FONT
     ws_overview.cell(row=excel_row, column=5, value=row.get("business_model", "")).font = BODY_FONT
+    ws_overview.cell(row=excel_row, column=6, value=row.get("Account Owner", "")).font = BODY_FONT
     for col_idx in range(2, 6):
         ws_overview.cell(row=excel_row, column=col_idx).alignment = CENTER
 
@@ -285,6 +302,7 @@ ws_briefs.column_dimensions["A"].width = 26
 ws_briefs.column_dimensions["B"].width = 95
 
 FIELD_ORDER = [
+    ("Account Owner", lambda r: r.get("Account Owner", "")),
     ("Industry", lambda r: r.get("industry", "")),
     ("Business Model", lambda r: r.get("business_model", "")),
     ("Workload Profile", lambda r: r.get("workload_profile", "")),
@@ -316,6 +334,15 @@ for i, row in call_list.iterrows():
     title_cell.fill = TITLE_FILL
     title_cell.alignment = Alignment(vertical="center", indent=1)
     ws_briefs.row_dimensions[title_row].height = 30
+
+    current_row += 1
+
+    back_cell = ws_briefs.cell(row=current_row, column=1)
+    back_cell.value = "\u2191 Back to Overview"
+    back_cell.hyperlink = "#Overview!A1"
+    back_cell.font = LINK_FONT
+    back_cell.alignment = Alignment(vertical="center", indent=1)
+    ws_briefs.row_dimensions[current_row].height = 18
 
     current_row += 1
 

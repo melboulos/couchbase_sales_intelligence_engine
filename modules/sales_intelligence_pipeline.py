@@ -106,8 +106,7 @@ GENERIC_FACT_PHRASES = [
     "generally",
     "usually",
     "commonly",
-    "likely has",
-    "likely handles",
+    "likely",
     "as a fintech company",
     "as a financial services company",
     "as a healthcare company",
@@ -315,6 +314,113 @@ def validate_recognition_evidence(result):
         )
 
     return result
+
+
+# =====================================================
+# CLASSIFICATION VALIDATION (classification pre-pass)
+#
+# Same fact-verification discipline as
+# validate_recognition_evidence above, reusing the same
+# stoplist/length check (single source of truth - not
+# duplicated), applied to the narrower classification-only
+# prompt in classification_prompt_builder.py. Also checks the
+# claimed workload_profile is one of the real, valid keys -
+# a model that returns a made-up category string is treated
+# the same as "none".
+# =====================================================
+
+# Facts phrased in the past tense about corporate existence mean
+# the company doesn't operate independently anymore - not a live
+# prospect. Found in production: "Tier 3, Inc." classified as an
+# active telecom_platform account, but the model's own fact said
+# "WAS a cloud computing and colocation company that WAS acquired
+# by CenturyLink in 2014."
+DEFUNCT_FACT_PATTERNS = [
+    "was a ", "was an ", "used to be", "no longer exists",
+    "no longer operates", "ceased operations", "was acquired by",
+    "was later acquired", "was subsequently acquired",
+    "is now part of", "was renamed", "was rebranded",
+    "was dissolved", "went out of business", "filed for bankruptcy",
+    "was merged into", "prior to its acquisition",
+]
+
+# Institution TYPES that are essentially never a fit for any of our
+# tracked workload categories, regardless of which one the model
+# picked. Found in production: Strayer University (a real, accurate
+# fact) got forced into saas_platform; Marfrig Global Foods
+# (meatpacking, accurately identified) got forced into
+# retail_platform. The fact was right, the category was wrong.
+NON_FIT_INSTITUTION_KEYWORDS = [
+    "university", "college", "school district", "law firm",
+    "accounting firm", "staffing agency", "meatpacking",
+    "meat packing", "engineering firm", "architecture firm",
+    "religious organization", "government agency",
+]
+
+
+def validate_classification(result, valid_profiles):
+    claimed_recognized = bool(result.get("llm_company_recognized"))
+    fact = normalize_text(result.get("llm_specific_fact", ""))
+
+    too_short = len(fact) < MIN_FACT_LENGTH
+    is_generic = any(phrase in fact for phrase in GENERIC_FACT_PHRASES)
+
+    verified = claimed_recognized and fact and not too_short and not is_generic
+
+    result["llm_recognition_verified"] = verified
+
+    is_defunct = any(pattern in fact for pattern in DEFUNCT_FACT_PATTERNS)
+    result["llm_defunct_flag"] = is_defunct
+
+    is_non_fit_institution = any(
+        keyword in fact for keyword in NON_FIT_INSTITUTION_KEYWORDS
+    )
+
+    profile = result.get("llm_workload_profile", "none")
+    if not verified or profile not in valid_profiles or is_defunct or is_non_fit_institution:
+        result["llm_workload_profile"] = "none"
+
+    # Scale tier only means anything if a real category was assigned
+    # and recognition is verified. Any other value (missing, typo,
+    # or attached to a "none" classification) safely defaults to
+    # "typical" - i.e. no adjustment, same as the category default.
+    scale_tier = result.get("llm_scale_tier", "typical")
+    if not verified or result["llm_workload_profile"] == "none" or \
+       scale_tier not in ("above_typical", "below_typical", "typical"):
+        scale_tier = "typical"
+    result["llm_scale_tier"] = scale_tier
+
+    return result
+
+
+# =====================================================
+# SCALE-ADJUSTED RATINGS (classification pre-pass)
+#
+# Applies a small, code-bounded nudge to the category's
+# default database_intensity/operational_complexity/
+# realtime_requirement, based on the model's llm_scale_tier
+# judgment. Same discipline as enforce_company_recognition_cap
+# above: the LLM makes a narrow, discrete choice
+# (above/below/typical), NOT raw numbers - testing all session
+# has shown the model cannot be trusted with unconstrained
+# numeric scoring, but a bounded +/-1 nudge, only applied when
+# recognition is verified, is a much smaller and safer trust
+# surface than the full independent score ever was.
+# =====================================================
+
+SCALE_ADJUSTMENT = {
+    "above_typical": 1,
+    "typical": 0,
+    "below_typical": -1,
+}
+
+RATING_MIN = 1
+RATING_MAX = 5
+
+
+def apply_scale_adjustment(base_value, scale_tier):
+    adjustment = SCALE_ADJUSTMENT.get(scale_tier, 0)
+    return max(RATING_MIN, min(RATING_MAX, base_value + adjustment))
 
 
 # =====================================================

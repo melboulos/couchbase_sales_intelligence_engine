@@ -321,3 +321,155 @@ confirmed) are both real, correct deliverables — not the stale
 6,701-account/320-account version that was accidentally rebuilt once
 mid-session from an un-updated `build_ae_call_list.py` before being
 caught and corrected.
+
+---
+
+## Same-day follow-up: classification pre-pass for the 7,732 Unknown accounts
+
+### The gap
+
+79% of the real file (7,732 of 9,758 accounts) had `industry ==
+"Unknown"` - genuinely no signal at all, since this lean export has
+no raw Industry/revenue/employee-count field, only the account name.
+Given real Bedrock cost was confirmed at ~$0.98 for 513 full
+intelligence calls, a much cheaper classification-only call became
+worth trying at this scale.
+
+### Design
+
+`modules/classification_prompt_builder.py` builds a deliberately
+narrow prompt: classify one company into one of the 13 existing
+`workload_profile` categories, or say "none" - not a scoring prompt,
+no engineering narrative. Same fact-verification discipline as the
+independent score (a genuine, checkable fact required before
+`llm_company_recognized` can be trusted). A verified classification
+gets folded into the row's `database_intensity`/
+`operational_complexity`/`realtime_requirement` via the SAME
+`workload_profiles.json` join `company_intelligence.py` already uses,
+then `calculate_coi()` - the same, unmodified scoring function
+everything else runs through - recomputes the score. No parallel
+scoring path.
+
+**Scale-tier adjustment**, added after the user asked for a way to
+get more accurate scoring beyond just classification: rather than
+trusting raw LLM-generated intensity numbers (already proven
+unreliable for the independent score), the model is asked a bounded,
+discrete question - is this SPECIFIC company above, below, or
+typical for its category - and `apply_scale_adjustment()` in
+`sales_intelligence_pipeline.py` applies a code-enforced +/-1 nudge
+(capped 1-5), only when recognition is verified. Confirmed via
+testing: Novartis (above_typical, verified) -> 43 vs. a generic
+regional pharmacy (typical) -> 34, a real 9-point differentiation
+from genuine evidence instead of a flat category default.
+
+`classification_prepass.py` runs this threaded (5 concurrent,
+checkpointed every 100) against all Unknown accounts, writing to a
+NEW file rather than overwriting the existing scored output.
+
+### Real run results
+
+7,732 accounts classified in 2,449s (~41 min). 5,032 (65%) genuinely
+verified. 3,761 (48.6%) upgraded from Unknown to a real category -
+of those, 2,963 (79%) actually cleared into Tier 2/3, not just got
+relabeled while staying Tier 4. Full-file tier shift: Tier 4 dropped
+9,035 -> 6,069, Tier 3 jumped 676 -> 3,638. Real cost: $2.60 (higher
+than the ~$1-2 rough estimate given going in, but still trivial in
+absolute terms).
+
+### Accuracy spot-check found real problems - documented, not hidden
+
+A 26-account stratified sample (weighted toward Tier 2/3, the
+higher-stakes population that actually reaches a seller) surfaced,
+in order of severity:
+
+- **Two confident fabrications**, same failure mode as BayMark
+  Health Services from the earlier production run: Pfizer described
+  as producing "the popular pain relief medication Advil" (wrong -
+  not a current Pfizer product), and Microvast described as "a
+  Chinese biotech company" with an invented-sounding product name
+  (Microvast is actually an EV battery company). **No code fix
+  exists for this** - a specific-sounding fact passing the
+  generic-phrase stoplist does not mean it's true, and this requires
+  an external lookup to catch, which is out of scope for this
+  pipeline. Documented as a standing, unresolved limitation.
+- **A data-hygiene bug unrelated to the LLM**: an account literally
+  named "TELEFONICA BRASIL S/A - DUPLICATED - TO BE DELETED" went
+  through the full pipeline and landed in Tier 3 as a live prospect.
+- **A defunct-company bug**: "Tier 3, Inc." scored as an active
+  telecom account, despite the model's own fact correctly stating in
+  the past tense that it "was... acquired by CenturyLink in 2014."
+- **Category-fit mismatches where the fact was accurate but the
+  category was wrong**: Strayer University -> `saas_platform`,
+  Marfrig Global Foods (meatpacking) -> `retail_platform`. A second,
+  larger sample (20 more accounts, mid-run) surfaced the same pattern
+  in different phrasing: CLEAResult Consulting -> `utilities_platform`,
+  CRA International (a consulting firm) -> `saas_platform`, PageGroup
+  ("recruitment consultancy") -> `saas_platform`, the Defense Contract
+  Management Agency -> `logistics_platform`, 3D Systems (a 3D printer
+  *manufacturer*) -> `saas_platform`, Corsicana Mattress (a mattress
+  *manufacturer*) -> `retail_platform`.
+
+### Guardrails added, all in `validate_classification()`
+
+- `HOUSEKEEPING_MARKERS` in `classification_prepass.py` - skips
+  accounts whose own name flags them for deletion (checked BEFORE
+  the LLM call, so it also saves cost, not just accuracy).
+- `DEFUNCT_FACT_PATTERNS` - past-tense corporate-existence phrasing
+  ("was a", "was acquired by", "no longer operates", etc.) forces
+  the classification to "none" regardless of what category was
+  claimed.
+- `NON_FIT_INSTITUTION_KEYWORDS` - broadened twice this session as
+  new phrasing patterns were found: universities, law/accounting/
+  engineering/architecture firms, consulting firms and consultancies,
+  recruitment agencies, government/defense agencies, meatpacking.
+  These institution TYPES are treated as never a fit for any tracked
+  category, regardless of which one the model picked.
+- `CATEGORY_SPECIFIC_MISMATCH_KEYWORDS` - a physical-goods
+  manufacturer doesn't fit `saas_platform` (deliberately does NOT
+  use a bare "machines" keyword, since that would false-positive on
+  legitimate terms like "virtual machines" - uses "3d printing"
+  specifically instead) and is questionable for `retail_platform`.
+- The classification prompt itself was also updated to instruct the
+  model to avoid institution-type mismatches directly, as a
+  belt-and-suspenders measure alongside the code-level checks.
+
+`revalidate_classifications.py` re-applies improved validation rules
+to already-collected answers with **zero new LLM calls** - lets
+guardrail improvements benefit data that was already paid for,
+rather than needing a full re-run every time a new mismatch pattern
+is found. Confirmed via testing that blocking is monotonic (new
+keyword lists are strict supersets of old ones), so re-validation
+never accidentally un-blocks something correctly blocked before.
+
+### Known limitations, explicitly not fixed
+
+- Pure fabrication (Pfizer/Microvast) has no code-level fix without
+  an external lookup.
+- The institution/category mismatch guardrails are a curated,
+  evidence-based list, not an exhaustive or principled taxonomy -
+  new phrasing patterns will likely keep surfacing and need adding
+  as found, the same way this session's list grew from one sample to
+  the next.
+- Company size/revenue as a separate structured field (asked about,
+  not built) was judged to add only modest scoring value (the
+  existing `company_context_points` bonus caps at 5/100) compared to
+  the scale-tier mechanism actually built, which adjusts the
+  dimensions that already drive the bulk of the score.
+
+### Also fixed same day: insurance_platform / pharma_device_platform base ratings
+
+Full-file data (not just a sample) showed Insurance (103 accounts)
+and Pharma & Medical Device (32 accounts) at exactly 100% Tier 4,
+zero accounts in any higher tier, for either entire vertical. Root
+cause, confirmed via the actual scoring formula: their flat rating
+(`database_intensity: 2, operational_complexity: 2,
+realtime_requirement: 1`) produces a hard ceiling of exactly 40
+points - reaching Tier 3 required literally every other bonus
+(engineering signal, tech maturity, company size) maxed
+simultaneously, an unrealistic combination. Raised both to `(3, 3,
+2)`, matching `utilities_platform`'s existing, precedented rating
+(not an invented number) - new ceiling 49, with real margin. Verified
+via test cases: an account with zero or one positive signal still
+correctly stays Tier 4 (34, 39); two positive signals now correctly
+cross into Tier 3 (44) where previously the same account would have
+scored only 35.
