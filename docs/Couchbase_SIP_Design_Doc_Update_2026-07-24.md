@@ -582,3 +582,220 @@ Data LLC, ELOQUII, Wireless Environment LLC all scored 10/100 with
 no fabrication attempted) alongside accurate, specific recognized
 facts (Servicios Comerciales Amazon Mexico correctly identified as
 an Amazon subsidiary, Klarna's "$35 billion in transactions" figure).
+
+---
+
+## July 27: narrative genericness, a prompt-leakage bug, and web search grounding (RAG)
+
+### Quantifying the "vanilla" complaint
+
+The second real run completed: 3,531 total LLM-processed accounts,
+$6.80 real cumulative cost. Manual sampling of the output surfaced a
+user complaint that responses "look the same" - confirmed directly
+rather than dismissed. `quantify_narrative_genericness.py` measured
+it precisely: across 2,532 genuinely different, verified accounts,
+`couchbase_point_of_view` collapsed into just 102 distinct opening
+styles. The top 15 templates covered 81.5% of all accounts, and the
+single most common opening alone covered 24.3%. Critically, all 15
+top templates shared the identical literal prefix "a distributed
+database" - only the adjective that followed varied (availability,
+scalability, consistency, flexible data model, throughput). This
+ruled out banning individual phrases (a losing, whack-a-mole
+approach) in favor of banning the shared structure itself.
+
+### Three prompt-only fixes, in order, each showing the same pattern
+
+1. Banned the specific phrase "a distributed database with high
+   availability/high-performance" - model complied, relocated the
+   same words to other adjective combinations not yet banned.
+2. Broadened to a structural ban on the opening words "A distributed
+   database" - model complied literally (technically never started
+   with those words) while burying the identical product mention a
+   few words into the sentence instead (confirmed: Netspend/UCB
+   retest both said "...requires a distributed database that can
+   scale horizontally" mid-sentence).
+3. This is the same pattern seen throughout this session with every
+   purely-instructional fix (score conservatively if unrecognized,
+   don't reuse phrasing) - the model reliably satisfies the LETTER of
+   a narrow rule while sidestepping its intent. Word-level and
+   structure-level prompt constraints only limit the SURFACE of an
+   answer; they can't manufacture real content where none exists.
+
+### A schema-level fix: split one field into two, code-validate the whole sentence
+
+Instead of another word ban, `couchbase_point_of_view` was removed
+as a model-supplied field entirely. The model must now fill two
+SEPARATE required fields: `specific_constraint` (banned, in code,
+from containing "database"/"distributed"/"couchbase"/"data
+layer"/"data platform" ANYWHERE in the sentence, not just at the
+start) and `distributed_solution` (where those terms are expected).
+`build_couchbase_pov_from_parts()` in
+`modules/sales_intelligence_pipeline.py` constructs the final
+`couchbase_point_of_view` field in code from these two parts, so
+every existing downstream consumer of that field name keeps working
+unchanged. Confirmed via retest: the exact prior failure case
+(product name buried mid-sentence) is now caught -
+`llm_constraint_violated` correctly flags it, which the old
+prefix-only check completely missed.
+
+### A serious bug found while testing the fix: prompt leakage
+
+An early version of the schema-split prompt included a fully-written
+"GOOD example" sentence to demonstrate the desired pattern. Testing
+against real accounts found the model had copied that example nearly
+verbatim onto United Community Bank, presenting fabricated content
+as genuine analysis of a real bank - a materially worse failure than
+generic templating, since it's confidently specific-sounding and
+false. `detect_generic_narrative()` (built for the templating
+problem) did not catch this, because it's a different failure mode
+entirely - a lesson in itself: a detector built for one measured
+problem does not automatically catch an adjacent one. Fixed by
+removing the copyable example entirely (replaced with abstract
+structural guidance - no complete sentence available to lift whole)
+and adding a permanent tripwire, `detect_prompt_leakage()`, checking
+for the specific leaked phrases as a safety net. Retest confirmed
+zero leakage across the retest accounts, with the schema-level fix's
+gains fully retained.
+
+### Even after the schema fix: real content, same skeleton
+
+Retesting across 11 real accounts (banking, healthcare, hospitality,
+fintech, credit union) showed `llm_constraint_violated: false`
+across the board - the vocabulary-level leak is genuinely fixed.
+But laid side by side, every `specific_constraint` sentence still
+follows the identical skeleton: "[concurrency word] updates to
+[domain noun] during peak [domain] period(s)." The NOUNS are now
+genuinely specific and different per account (patient profiles,
+mobile key requests, member accounts, trade positions) - real
+progress - but the underlying sentence shape is apparently a
+structural habit of the model, not something further word-level
+constraints can reach. Documented as an accepted limitation rather
+than pursued further, given diminishing returns from three
+successive prompt-only attempts.
+
+### The actual root cause, and the real fix: give the model real information
+
+User's framing, and the right one: "every fix we've built moves the
+compliance goalpost narrower; none of them give the model something
+real to say instead." For a large share of accounts, the model
+genuinely has nothing beyond a bare company name - no amount of
+output-side constraint can manufacture facts that don't exist in
+training data. Checked whether the raw Salesforce export had unused
+fields that could help first (Website, Revenue, Employee Count) -
+confirmed via direct inspection it does not; the export truly only
+has Last Activity/Account Owner/Account Name/State/Type/Last
+Modified Date, and `Type` is 99% "Prospect Account" with no
+differentiating value. This ruled out a cheap fix and confirmed a
+real one was needed: Retrieval-Augmented Generation (RAG) - give the
+model real, retrieved information instead of asking it to recall
+from memory.
+
+### Building the web search integration
+
+`modules/web_search_client.py` calls Serper.dev (a Google Search API
+wrapper), reading `SERPER_API_KEY` from an environment variable -
+never hardcoded, never logged, never passed through code that might
+print it. Fails soft on any error (missing key, network failure,
+rate limit, empty results) - returns `None`, falling back to
+memory-only generation exactly as before this feature existed.
+Tested first standalone (`test_web_search.py`), against a
+deliberate mix: a well-known company (Netspend, control case), a
+thinly-recognized one (United Community Bank), and three the LLM
+had explicitly failed to recognize in real production output (Sqrrl
+Data LLC, ELOQUII, Zup IT Innovation). All three previously-blank
+accounts got back real, accurate, specific information - confirming
+the core hypothesis before any pipeline integration was attempted.
+
+### Two real problems found by actually reading the search results, not just trusting them
+
+1. **Name collision.** United Community Bank's search results
+   included a snippet for an entirely different, unrelated small
+   Louisiana bank sharing the same generic name. Fixed by passing
+   the account's own `Account State/Province (text only)` field
+   (present in the raw data, previously unused) into the search
+   query to disambiguate - confirmed via direct before/after
+   testing: without location, a wrong-bank snippet appears; with
+   "Georgia" added, only the correct ~200-location regional bank
+   shows up, with MORE specific detail ("top 100 U.S. bank... 200+
+   locations across six states") than the model's own memory-based
+   fact had ("over 100 branches").
+2. **Defunct-detection over-triggering.** The existing
+   `DEFUNCT_FACT_PATTERNS` check (built earlier to catch "Tier 3,
+   Inc." - genuinely dissolved into CenturyLink) treated bare
+   "was acquired by" language as sufficient to mark an account
+   defunct. Real acquisition news shows up constantly in search
+   results, far more often than the LLM's own memory ever
+   volunteered it - Zup Innovation (a real, active subsidiary of
+   Itau Unibanco, same situation as Alexion/AstraZeneca) would have
+   been incorrectly suppressed. Fixed by splitting into
+   `DEFUNCT_STRONG_PATTERNS` (genuinely sufficient alone: "no longer
+   exists," "ceased operations," "went out of business," etc.) and
+   `DEFUNCT_ACQUISITION_PATTERNS` (ambiguous alone - only treated as
+   defunct when co-occurring with `PAST_TENSE_SELF_PATTERNS`, i.e.
+   the company describing its OWN nature in the past tense: "Tier 3,
+   Inc. WAS a cloud computing company that was acquired..." vs.
+   "Alexion IS a biopharmaceutical company... that was acquired...").
+   Confirmed via testing all four real cases: the original Tier 3
+   Inc bug still caught, Alexion and Zup both correctly excluded,
+   and a genuinely-dissolved case (Sqrrl) still correctly caught via
+   the strong-pattern path alone.
+
+### Wiring search into the actual pipeline
+
+`build_intelligence_prompt()` gained an optional `web_context`
+parameter, inserted right after the ACCOUNT DATA block with explicit
+instructions to treat it as more reliable than training-data memory.
+`validate_account()` calls `search_company()` before building the
+prompt, using the account's state for disambiguation - and, per a
+direct question about the 586 accounts (6% of the real file) with no
+state on file at all, skips search entirely for those, falling back
+to memory-only rather than risking an unfixable mismatch with no way
+to catch it (a deliberate, conservative tradeoff: lose the upside for
+6% of accounts rather than risk a confidently-wrong grounded answer
+for any of them). The account's own location is also now shown
+directly in the prompt's ACCOUNT DATA block (previously computed for
+the search query but never actually shown to the model), paired with
+an explicit instruction to cross-check any search result against it
+and flag conflicting results rather than silently picking one.
+
+### Real production evidence the fix works, twice confirmed
+
+Retested against 11 real accounts from the actual production file
+(not the small test fixture missing the location column). United
+Community Bank correctly identified as the real ~200-location,
+$28.2 billion regional bank across GA/NC/TN/SC/FL/AL, in BOTH
+appearances in the batch - the location fix and cross-check
+instruction both held under real, repeated testing, not a fluke.
+Facts across the board got measurably richer: Cleo's founding year
+(1976), Staywell's employee count (501-1,000), PeopleAdmin's parent
+company (a PowerSchool company) - all real, checkable details that
+weren't present in memory-only output. `llm_used_web_search` field
+added (visible on the Call Brief as a `\U0001F50D Web-Verified` tag,
+alongside the existing `\u26A0 NOT COMPANY-VERIFIED` warning) so a
+rep can tell at a glance whether an account's narrative is grounded
+in a real, live search result.
+
+### Cost and safety notes
+
+Serper.dev's free tier (2,500 queries, no credit card required) was
+used for all testing in this session. Since no payment method is on
+file, there is structurally no way to be charged beyond the free
+tier - additional calls simply fail cleanly (same as any other
+search failure: fall back to memory-only). At full production scale
+(3,523 qualified accounts minus ~586 skipped for no location), one
+search per qualifying account would use roughly 3,000 queries -
+comfortably within a single top-up if the free tier is exhausted.
+
+### Final status of the narrative-quality investigation
+
+Genuinely improved: vocabulary-level genericness (product names
+appearing anywhere in the constraint sentence) is fixed and
+code-verified, not just prompt-requested. Fact richness is
+measurably better with search grounding live. What remains
+unresolved and accepted: the underlying sentence-structure
+convergence for the constraint field itself, which appears to be a
+structural habit of the model rather than something further
+word-level prompt engineering can reach - documented as a known
+limitation rather than pursued through a fourth round of word bans,
+given three consecutive attempts showing the same diminishing
+return.

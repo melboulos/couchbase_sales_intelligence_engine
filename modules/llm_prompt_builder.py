@@ -33,7 +33,7 @@
 # =====================================================
 
 
-def build_intelligence_prompt(row):
+def build_intelligence_prompt(row, web_context=""):
 
     return f"""
 
@@ -165,9 +165,33 @@ engineering vocabulary detached from the named workload.
 
 Do NOT imply the customer has these issues.
 
-Do NOT reuse phrasing across different accounts. Each
-account's workloads, business model, and signal values
-are different — your reasoning must be different too.
+CONCRETE BAN — these openings and near-variants of them
+have been confirmed, by directly auditing real output, to
+repeat across dozens of unrelated companies. Do not open
+any sentence in this section with:
+  - "The [workload] workload requires a database that can
+    handle high-volume, high-frequency transactions"
+  - "A distributed database with high availability, low
+    latency..."
+  - Any sentence structure where the SAME words could be
+    copy-pasted onto a different company's workload of
+    the same generic type (payments, logistics, patient
+    data, etc.) without anyone noticing the substitution.
+
+Instead, your first sentence for each workload must name
+something SPECIFIC to this account — a real scale figure,
+a real product name, or a real operational detail already
+given below (Account, Business Model, Observed Workloads,
+or any Signal field) — and explain the requirement in
+terms of THAT specific detail, not the workload's generic
+category.
+
+If none of the given fields contain anything specific
+enough to differentiate this account from any other
+account with the same workload type, say so explicitly
+("insufficient specific detail to differentiate this
+account's requirements") rather than filling the gap with
+generic language dressed up to look specific.
 
 
 
@@ -177,19 +201,53 @@ COUCHBASE POINT OF VIEW
 
 Do NOT pitch Couchbase.
 
-Based on the SPECIFIC engineering implications you just
-identified above for THIS account, explain which
-distributed-database characteristics would address THOSE
-specific implications — not a general list of database
-benefits.
+This section has TWO separate required fields. Fill them
+separately — do not blend them into one field, and do not
+write a "couchbase_point_of_view" field directly, it does
+not exist in the output schema anymore.
 
-Connect your answer directly to what you wrote in
-ENGINEERING INTERPRETATION. If you did not mention a
-characteristic there, do not introduce it here for the
-first time.
+FIELD 1: "specific_constraint"
+
+One sentence. State the SPECIFIC technical constraint this
+account's engineering implications point to — a particular
+kind of concurrent update, a particular consistency
+requirement, a particular latency-sensitive step, a
+specific number or scale detail already named above.
+
+HARD RULE, enforced by code, not just requested: this
+sentence must NOT contain the words "database,"
+"distributed," "Couchbase," "data layer," or "data
+platform," anywhere in it, in any form. If it does, your
+response fails validation. This is not a style preference —
+this exact rule exists because two earlier, softer versions
+of this instruction (banning specific phrases, then banning
+only the opening words) were both followed literally while
+the underlying product-first pattern was simply moved a few
+words later in the sentence, confirmed by directly auditing
+real responses. Putting the constraint in a separate field
+that is CODE-CHECKED for these words closes that loophole.
+
+If you do not have enough specific detail about THIS
+account to write a genuinely differentiating constraint,
+write exactly: "Insufficient specific detail to
+differentiate this account's constraint." Do not fill the
+gap with generic language dressed up to sound specific.
+
+FIELD 2: "distributed_solution"
+
+One sentence. Now connect the constraint you just named to
+why a distributed data layer specifically addresses it.
+This field MAY mention distributed-database characteristics
+— that is its job. It must reference the SAME constraint
+you named in specific_constraint, not introduce a new one.
+
+Connect both fields directly to what you wrote in ENGINEERING
+INTERPRETATION. If you did not mention a characteristic
+there, do not introduce it here for the first time.
 
 This is an engineering discussion topic, not a product
 pitch.
+
 
 
 
@@ -197,28 +255,41 @@ pitch.
 DISCOVERY STRATEGY
 =====================================================
 
-Create a progression.
+Create a 4-phase discovery progression that goes
+progressively deeper — from architecture, to workload
+specifics, to operational constraints, to a decision point
+about whether operational database architecture is worth
+discussing further.
 
-Phase 1
+CONFIRMED PROBLEM WITH THE OLD VERSION OF THIS SECTION:
+it used to give you the literal phase objective text
+("Understand architecture," "Understand workload
+characteristics," "Understand operational constraints,"
+"Determine whether operational database architecture is
+becoming a discussion") and you copied it verbatim onto
+every account regardless of industry. That is now banned.
 
-Understand architecture.
+Do NOT use the phrases "Understand architecture,"
+"Understand workload characteristics," "Understand
+operational constraints," or "Determine whether
+operational database architecture is becoming a
+discussion" as phase objectives, verbatim or as close
+paraphrases. Each phase's objective must name the SPECIFIC
+workload or engineering implication it's investigating —
+for example, for a payments account, "Phase 2" might be
+named "Quantify transaction concurrency during peak
+settlement windows" instead of the generic "Understand
+workload characteristics."
 
-Phase 2
-
-Understand workload characteristics.
-
-Phase 3
-
-Understand operational constraints.
-
-Phase 4
-
-Determine whether operational database
-architecture is becoming a discussion.
+The 4-phase progression (architecture context -> workload
+specifics -> operational constraints -> decision point) is
+still the right SHAPE to follow. What must change account
+to account is the actual wording of each phase's objective
+and its questions — grounded in the specific
+engineering_implications you already wrote above, not in
+generic discovery methodology.
 
 Questions should become progressively deeper.
-
-Avoid generic discovery.
 
 
 
@@ -387,7 +458,30 @@ Revenue Signal:
 AI Signal:
 {row.get("ai_signal","Unknown")}
 
+Account Location (state/province, if known):
+{row.get("Account State/Province (text only)","Unknown")}
+{web_context}
+{"" if not web_context else '''
+IMPORTANT - CROSS-CHECK WEB SEARCH RESULTS ABOVE AGAINST THE
+ACCOUNT LOCATION GIVEN ABOVE, before using anything from them.
+Confirmed via real testing: many companies share similar or
+identical names. Search results for "United Community Bank"
+returned a mix of TWO different real banks - the actual account
+(a ~200-location regional bank across GA/NC/TN/SC/FL/AL) and an
+unrelated small Louisiana bank with the same name. The model
+picked the wrong one, even though the account\\'s own known
+location and the majority of the search results pointed to the
+correct company.
 
+Before using ANY detail from the search results above: does it
+describe a company in the SAME location as the Account Location
+given above? If a result describes a different state/region, or
+otherwise seems to describe an unrelated business, do NOT use
+that detail - it is very likely describing a different company
+that happens to share this name. If the search results conflict
+with each other on this point, say so explicitly in
+llm_specific_fact rather than confidently picking one at random.
+'''}
 
 =====================================================
 RETURN FORMAT
@@ -409,7 +503,8 @@ Schema
   "engineering_implications":[
   ],
 
-  "couchbase_point_of_view":"",
+  "specific_constraint":"",
+  "distributed_solution":"",
 
   "technical_risks_to_validate":[
   ],

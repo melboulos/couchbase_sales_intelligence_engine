@@ -39,7 +39,8 @@ import datetime
 REQUIRED_FIELDS = [
     "account_name",
     "engineering_implications",
-    "couchbase_point_of_view",
+    "specific_constraint",
+    "distributed_solution",
     "technical_risks_to_validate",
     "discovery_progression",
     "missing_information",
@@ -64,7 +65,8 @@ LIST_FIELDS = [
 # the key exists.
 NON_EMPTY_FIELDS = [
     "engineering_implications",
-    "couchbase_point_of_view",
+    "specific_constraint",
+    "distributed_solution",
     "discovery_progression",
     "llm_score_reasoning",
     "llm_specific_fact"
@@ -335,13 +337,32 @@ def validate_recognition_evidence(result):
 # active telecom_platform account, but the model's own fact said
 # "WAS a cloud computing and colocation company that WAS acquired
 # by CenturyLink in 2014."
-DEFUNCT_FACT_PATTERNS = [
-    "was a ", "was an ", "used to be", "no longer exists",
-    "no longer operates", "ceased operations", "was acquired by",
-    "was later acquired", "was subsequently acquired",
-    "is now part of", "was renamed", "was rebranded",
+# STRONG patterns: genuinely sufficient alone to indicate the
+# company is defunct/dissolved, not just acquired.
+DEFUNCT_STRONG_PATTERNS = [
+    "no longer exists", "no longer operates", "ceased operations",
     "was dissolved", "went out of business", "filed for bankruptcy",
-    "was merged into", "prior to its acquisition",
+    "shut down", "concluded its business operations",
+    "concluded operations", "has closed",
+]
+
+# AMBIGUOUS patterns: acquisition alone does NOT mean defunct - most
+# acquired companies keep operating as active subsidiaries (Alexion
+# under AstraZeneca, Zup Innovation under Itau Unibanco, both
+# confirmed via real testing to be legitimate live accounts, not
+# defunct). Only treated as a defunct signal when it co-occurs with
+# PAST_TENSE_SELF_PATTERNS below - i.e. the company describes its
+# OWN nature in the past tense ("Tier 3, Inc. WAS a cloud computing
+# company that was acquired by CenturyLink" - self-description in
+# past tense, unlike "Alexion IS a biopharmaceutical company... that
+# was acquired by AstraZeneca" - self-description in present tense).
+DEFUNCT_ACQUISITION_PATTERNS = [
+    "was acquired by", "was later acquired", "was subsequently acquired",
+    "is now part of", "was merged into", "prior to its acquisition",
+]
+
+PAST_TENSE_SELF_PATTERNS = [
+    "was a ", "was an ", "used to be", "was renamed", "was rebranded",
 ]
 
 # Institution TYPES that are essentially never a fit for any of our
@@ -413,7 +434,10 @@ def validate_classification(result, valid_profiles):
 
     result["llm_recognition_verified"] = verified
 
-    is_defunct = any(pattern in fact for pattern in DEFUNCT_FACT_PATTERNS)
+    has_strong_defunct = any(pattern in fact for pattern in DEFUNCT_STRONG_PATTERNS)
+    has_acquisition = any(pattern in fact for pattern in DEFUNCT_ACQUISITION_PATTERNS)
+    has_past_tense_self = any(pattern in fact for pattern in PAST_TENSE_SELF_PATTERNS)
+    is_defunct = has_strong_defunct or (has_acquisition and has_past_tense_self)
     result["llm_defunct_flag"] = is_defunct
 
     is_non_fit_institution = any(
@@ -685,13 +709,213 @@ def apply_narrative_caveat(result):
     return result
 
 
+# Confirmed via direct quantification of 2,532 real, genuinely
+# different verified accounts: 81.5% of all Couchbase POV openings
+# share one of just 15 templates, and every single one of those 15
+# starts with the literal words "a distributed database" - only the
+# adjective that follows varies (availability, scalability,
+# consistency, flexible data model, throughput, etc.). Banning
+# individual adjective combinations is a losing game (confirmed:
+# an earlier version of this check only banned 2 specific
+# combinations and would have caught ~41% of the real problem,
+# missing "scalability"/"consistency"/"flexible data model" variants
+# entirely) - checking the actual shared opening STRUCTURE catches
+# the real pattern regardless of which adjective is used.
+GENERIC_NARRATIVE_PREFIX = "a distributed database"
+
+
+def detect_generic_narrative(result):
+    pov = normalize_text(result.get("couchbase_point_of_view", ""))
+    is_generic = pov.startswith(GENERIC_NARRATIVE_PREFIX)
+    result["llm_narrative_generic"] = is_generic
+    return result
+
+
+# Confirmed via real production output: a "GOOD example" sentence
+# written INTO the prompt to demonstrate a pattern got copied
+# nearly verbatim onto United Community Bank, presented as if it
+# were real analysis of that specific bank - a different, more
+# dangerous failure than generic templating, since it's confidently
+# fabricated content that LOOKS specific. The example sentence has
+# since been removed from the prompt, but this tripwire stays as a
+# permanent check in case this exact text resurfaces (a cached
+# prompt version, model memory, etc.) and as a template for
+# catching prompt-leakage generally, not just this one instance.
+LEAKED_EXAMPLE_PHRASES = [
+    "sustaining sub-second fraud-check latency while a single write",
+    "loyalty points, and transaction history simultaneously",
+]
+
+
+def detect_prompt_leakage(result):
+    pov = normalize_text(result.get("couchbase_point_of_view", ""))
+    is_leaked = any(phrase in pov for phrase in LEAKED_EXAMPLE_PHRASES)
+    result["llm_prompt_leakage_detected"] = is_leaked
+    return result
+
+
+# The old prompt HARDCODED these exact phase objective phrases as
+# literal text for the model to echo - this guaranteed identical
+# discovery_progression output on every account regardless of
+# industry. Now banned in the prompt; this checks whether the ban
+# actually took effect, or whether the model still reaches for the
+# same phrasing out of habit.
+GENERIC_DISCOVERY_PHRASES = [
+    "understand architecture",
+    "understand workload characteristics",
+    "understand operational constraints",
+    "determine whether operational database architecture",
+]
+
+
+def detect_generic_discovery(result):
+    progression = result.get("discovery_progression", [])
+
+    if not isinstance(progression, list):
+        result["llm_discovery_generic"] = False
+        return result
+
+    generic_phase_count = 0
+    for phase in progression:
+        if isinstance(phase, dict):
+            objective = normalize_text(phase.get("objective", ""))
+            if any(phrase in objective for phrase in GENERIC_DISCOVERY_PHRASES):
+                generic_phase_count += 1
+
+    # Flag if HALF or more of the phases still use the old generic
+    # objectives - a single coincidental match isn't proof of
+    # templating, but most/all of them matching is.
+    result["llm_discovery_generic"] = (
+        len(progression) > 0 and generic_phase_count >= len(progression) / 2
+    )
+    return result
+
+
+# Schema-level fix, not just an instruction: the model is now
+# required to return TWO separate fields instead of one free-text
+# couchbase_point_of_view. This exists because two prior fixes
+# (banning specific phrases, then banning the opening structure)
+# were both followed literally while the model simply relocated the
+# same product-first pattern a few words later - confirmed via real
+# retest (Netspend/UCB: "Handling the volume...requires a
+# distributed database that can scale horizontally", product name
+# introduced almost immediately despite technically not being the
+# first word). Splitting into two REQUIRED fields lets code check
+# the ENTIRE specific_constraint sentence for product-name mentions,
+# not just whether it happens to start that way - much harder to
+# route around than a prefix check.
+CONSTRAINT_BANNED_WORDS = [
+    "database", "distributed", "couchbase", "data layer",
+    "data platform",
+]
+
+
+def build_couchbase_pov_from_parts(result):
+    constraint = normalize_text(result.get("specific_constraint", ""))
+    solution = result.get("distributed_solution", "")
+
+    violated = any(word in constraint for word in CONSTRAINT_BANNED_WORDS)
+    result["llm_constraint_violated"] = violated
+
+    result["couchbase_point_of_view"] = (
+        f"{result.get('specific_constraint', '')} {solution}"
+    ).strip()
+
+    return result
+
+
+def detect_defunct_company(result):
+    """
+    The classification pre-pass has had defunct-company detection
+    since early this session (DEFUNCT_STRONG_PATTERNS etc., built for
+    the "Tier 3, Inc." bug). This full-intelligence path had no
+    equivalent check at all - an account that already has a
+    workload_profile assigned skips the classification pre-pass
+    entirely and goes straight here. Confirmed real gap via
+    production data: Sqrrl Data LLC ("was an American company...
+    acquired by Amazon", genuinely defunct, confirmed via real web
+    search earlier this session) scored 65/100 and was never flagged
+    as anything but a normal live prospect. Consulate Health Care
+    ("officially concluded its business operations as of May 31,
+    2025") got a self-corrected LOW score from the model's own
+    reasoning, but still no code-level flag or visible warning -
+    relying on the model to notice and self-correct every time is
+    not a real safeguard.
+
+    Same detection logic as validate_classification() - reuses the
+    same constants, not a duplicate stoplist. Applies the SAME code-
+    enforced discipline as enforce_company_recognition_cap(): don't
+    trust the model to self-correct, force the score down and make
+    the warning visible regardless of what the model's own reasoning
+    happened to do this time.
+    """
+    fact = normalize_text(result.get("llm_specific_fact", ""))
+
+    has_strong = any(pattern in fact for pattern in DEFUNCT_STRONG_PATTERNS)
+    has_acquisition = any(pattern in fact for pattern in DEFUNCT_ACQUISITION_PATTERNS)
+    has_past_tense_self = any(pattern in fact for pattern in PAST_TENSE_SELF_PATTERNS)
+    is_defunct = has_strong or (has_acquisition and has_past_tense_self)
+
+    result["llm_defunct_detected"] = is_defunct
+
+    if not is_defunct:
+        return result
+
+    # Force the score down regardless of what the model computed -
+    # a defunct company is not a live prospect, whatever scale or
+    # complexity language appears in the narrative.
+    result["llm_workload_score"] = min(result.get("llm_workload_score", 0), 5)
+    result["llm_realtime_score"] = min(result.get("llm_realtime_score", 0), 5)
+    result["llm_complexity_score"] = min(result.get("llm_complexity_score", 0), 5)
+    result["llm_total_score"] = (
+        result["llm_workload_score"] + result["llm_realtime_score"] + result["llm_complexity_score"]
+    )
+
+    DEFUNCT_CAVEAT = (
+        "NOTE: this account's own stated fact indicates the company "
+        "may no longer operate as an independent, active entity "
+        "(acquired/dissolved/concluded operations). Verify current "
+        "status before treating this as a live prospect."
+    )
+    implications = result.get("engineering_implications", [])
+    if isinstance(implications, list):
+        result["engineering_implications"] = [DEFUNCT_CAVEAT] + implications
+    result["couchbase_point_of_view"] = f"{DEFUNCT_CAVEAT} {result.get('couchbase_point_of_view', '')}"
+    result["llm_narrative_caveated"] = True
+
+    return result
+
+
 def validate_llm_output(result, raw_text, account_name):
     validate_required_fields(result)
+    build_couchbase_pov_from_parts(result)
     validate_non_empty_fields(result)
     validate_independent_score(result)
     validate_recognition_evidence(result)
     enforce_company_recognition_cap(result)
     apply_narrative_caveat(result)
+    detect_generic_narrative(result)
+    detect_generic_discovery(result)
+    detect_prompt_leakage(result)
+    detect_defunct_company(result)
+
+    if result.get("llm_prompt_leakage_detected"):
+        # Confirmed-fabricated content is worse than the
+        # unverified-recognition case apply_narrative_caveat
+        # already handles - force the same visible warning even if
+        # recognition was otherwise verified, since UCB's case
+        # showed this can happen to a genuinely recognized account.
+        LEAK_CAVEAT = (
+            "NOTE: this response was found to contain text copied "
+            "from internal prompt instructions rather than genuine "
+            "analysis of this account. Do not use as-is - request "
+            "regeneration or write manually."
+        )
+        implications = result.get("engineering_implications", [])
+        if isinstance(implications, list):
+            result["engineering_implications"] = [LEAK_CAVEAT] + implications
+        result["couchbase_point_of_view"] = f"{LEAK_CAVEAT} {result.get('couchbase_point_of_view', '')}"
+        result["llm_narrative_caveated"] = True
 
     combined_text = normalize_text(
         json.dumps(result) + str(raw_text)
@@ -762,7 +986,34 @@ def validate_account(row):
         # SINGLE INTELLIGENCE GENERATION
         # =================================================
 
-        prompt = build_intelligence_prompt(row)
+        from modules.web_search_client import search_company, format_web_context
+
+        location = row.get("Account State/Province (text only)", "")
+
+        # Without a known location, a common/generic company name has
+        # no way to be disambiguated if search returns a mixed bag of
+        # different companies - confirmed via real testing (United
+        # Community Bank: search returned BOTH the real ~200-location
+        # regional bank AND an unrelated small Louisiana bank, and the
+        # model picked the wrong one). Skipping search here falls back
+        # to memory-only, same as before this feature existed - safer
+        # than risking a confidently-wrong grounded answer with no way
+        # to catch it.
+        if location:
+            search_snippets = search_company(row.get("Account Name", ""), location=location)
+        else:
+            search_snippets = None
+
+        web_context = format_web_context(search_snippets)
+
+        # Tracked separately from the LLM's own output fields, since
+        # this describes what WE did (called search or not), not
+        # something the model reports about itself. Lets a rep or QA
+        # reviewer tell "grounded in a real search result" apart from
+        # "model's memory only" at a glance.
+        result["llm_used_web_search"] = bool(search_snippets)
+
+        prompt = build_intelligence_prompt(row, web_context=web_context)
         intelligence = call_llm(prompt)
 
         print()

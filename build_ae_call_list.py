@@ -20,7 +20,7 @@ def checkpoint(msg):
     print(f">>> CHECKPOINT: {msg}", flush=True)
 
 
-INPUT_FILE = "output/report1784905185024_Scored_with_classification.xlsx"
+INPUT_FILE = "output/report1784905185024_Scored_FINAL.xlsx"
 OUTPUT_FILE = "output/AE_Call_List.xlsx"
 
 
@@ -330,11 +330,17 @@ for i, row in call_list.iterrows():
         if row.get("llm_narrative_caveated") in (True, 1, 1.0)
         else ""
     )
+    web_search_marker = (
+        "  \U0001F50D Web-Verified"
+        if row.get("llm_used_web_search") in (True, 1, 1.0)
+        else ""
+    )
     title_cell.value = (
         f"{row.get('Account Name', '')}   "
         f"\u2014  COI {row.get('overall_coi', '')}  "
         f"\u2014  {row.get('priority_tier', '')}"
         f"{caveat_marker}"
+        f"{web_search_marker}"
     )
     title_cell.font = TITLE_FONT
     title_cell.fill = TITLE_FILL

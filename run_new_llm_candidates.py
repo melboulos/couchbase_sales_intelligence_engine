@@ -101,6 +101,12 @@ llm_merge_columns = [
     "llm_total_score",
     "llm_score_capped",
     "llm_narrative_caveated",
+    "llm_narrative_generic",
+    "llm_discovery_generic",
+    "llm_prompt_leakage_detected",
+    "llm_constraint_violated",
+    "llm_used_web_search",
+    "llm_defunct_detected",
     "llm_score_reasoning"
 ]
 llm_merge_columns = [c for c in llm_merge_columns if c in validated_llm_accounts.columns]
@@ -108,6 +114,20 @@ llm_merge_columns = [c for c in llm_merge_columns if c in validated_llm_accounts
 validated_llm_accounts_deduped = validated_llm_accounts.drop_duplicates(
     subset="Account Name", keep="first"
 )
+
+# The input file already has some of these columns populated from
+# the ORIGINAL 513-account main.py run (engineering_implications,
+# llm_total_score, etc.) - merging again with overlapping non-key
+# columns makes pandas silently create _x/_y suffixed duplicates
+# instead of a clean single column, since these aren't the join
+# key. Same root cause and same fix as the earlier gate_score/
+# run_llm duplicate-column bug: drop the stale columns first.
+stale_llm_cols = [
+    c for c in llm_merge_columns
+    if c != "Account Name" and c in accounts.columns
+]
+if stale_llm_cols:
+    accounts = accounts.drop(columns=stale_llm_cols)
 
 accounts = accounts.merge(
     validated_llm_accounts_deduped[llm_merge_columns],

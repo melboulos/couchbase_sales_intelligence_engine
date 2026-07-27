@@ -224,6 +224,12 @@ llm_merge_columns = [
     "llm_total_score",
     "llm_score_capped",
     "llm_narrative_caveated",
+    "llm_narrative_generic",
+    "llm_discovery_generic",
+    "llm_prompt_leakage_detected",
+    "llm_constraint_violated",
+    "llm_used_web_search",
+    "llm_defunct_detected",
     "llm_score_reasoning"
 ]
 

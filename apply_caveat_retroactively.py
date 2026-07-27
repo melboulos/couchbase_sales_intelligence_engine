@@ -29,7 +29,7 @@
 import ast
 import pandas as pd
 
-from modules.sales_intelligence_pipeline import apply_narrative_caveat
+from modules.sales_intelligence_pipeline import apply_narrative_caveat, detect_generic_narrative
 
 CHECKPOINT_FILE = "output/llm_validation_results.xlsx"
 
@@ -79,12 +79,16 @@ already_caveated = 0
 newly_caveated = 0
 skipped_verified = 0
 skipped_not_validated = 0
+generic_count = 0
 
 # Same fix as every other script in this session that writes mixed
 # types back after an Excel round-trip: a column that's all-blank
 # for some rows gets inferred as float64, and writing a string/bool
 # into it raises LossySetitemError.
-TARGET_COLS = ["engineering_implications", "couchbase_point_of_view", "llm_narrative_caveated"]
+TARGET_COLS = [
+    "engineering_implications", "couchbase_point_of_view",
+    "llm_narrative_caveated", "llm_narrative_generic",
+]
 for col in TARGET_COLS:
     if col in results.columns:
         results[col] = results[col].astype(object)
@@ -94,6 +98,20 @@ for idx, row in results.iterrows():
     if not is_true(row.get("llm_validation")):
         skipped_not_validated += 1
         continue
+
+    # Generic-narrative detection is separate from the caveat -
+    # applies to every validated row regardless of caveat status,
+    # since a genuinely recognized account can still get generic,
+    # templated output (confirmed via real production sampling:
+    # e.g. many "Fraud AI Potential" accounts share verbatim
+    # openings despite being genuinely, correctly recognized).
+    generic_check_result = {
+        "couchbase_point_of_view": row.get("couchbase_point_of_view", "")
+    }
+    detect_generic_narrative(generic_check_result)
+    results.at[idx, "llm_narrative_generic"] = generic_check_result["llm_narrative_generic"]
+    if generic_check_result["llm_narrative_generic"]:
+        generic_count += 1
 
     if is_true(row.get("llm_narrative_caveated")):
         already_caveated += 1
@@ -127,6 +145,15 @@ print(f"Newly caveated (unverified, fix now applied): {newly_caveated}")
 print(f"Already had the caveat (no change needed):     {already_caveated}")
 print(f"Verified accounts (no caveat needed):           {skipped_verified}")
 print(f"Not yet LLM-validated (skipped):                {skipped_not_validated}")
+print()
+print("=========================================================")
+print("GENERIC NARRATIVE DETECTION (measurement only, all validated rows)")
+print("=========================================================")
+total_validated = newly_caveated + already_caveated + skipped_verified
+print(f"Flagged as generic (matches a confirmed overused template): {generic_count}")
+print(f"Total validated rows checked:                                 {total_validated}")
+if total_validated > 0:
+    print(f"Generic rate: {100*generic_count/total_validated:.1f}%")
 
 results.to_excel(CHECKPOINT_FILE, index=False)
 print()
