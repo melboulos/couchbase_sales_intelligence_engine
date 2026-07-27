@@ -15,10 +15,10 @@ The COI (Couchbase Opportunity Index) score is only a prioritization mechanism. 
 The deterministic pipeline decides *which* accounts qualify. The LLM never scores or qualifies accounts — it generates qualitative seller intelligence for accounts the deterministic engine has already selected.
 
 <p align="center">
-  <img src="docs/pipeline_flow.svg" alt="Pipeline flow: Salesforce account list, enrichment and classification, COI scoring, deterministic gate, LLM intelligence generation with independent scoring, validation gates, and final merged output" width="560">
+  <img src="docs/pipeline_flow.svg" alt="Pipeline flow: Salesforce account list, enrichment and classification, COI scoring, deterministic gate, web search grounding, LLM intelligence generation with independent scoring, validation gates, and final merged output" width="560">
 </p>
 
-Teal = fully deterministic, no LLM cost. Purple = LLM-involved. The independent LLM score sits alongside `overall_coi` for comparison only — it's never blended into it, and a code-enforced cap kicks in whenever the model can't produce a genuine, checkable fact about the named company (see Known Limitations below).
+Teal = fully deterministic, no LLM cost. Purple = LLM-involved. Accounts on the LLM path are first grounded in real, retrieved facts (`modules/web_search_client.py`, via Serper.dev) before intelligence generation — this exists because word-level prompt constraints alone couldn't fix generic output for accounts the model has no real training-data memory of; see the July 27 design doc section for the full investigation. The independent LLM score sits alongside `overall_coi` for comparison only — it's never blended into it, and a code-enforced cap kicks in whenever the model can't produce a genuine, checkable fact about the named company (see Known Limitations below).
 
 ## Architecture
 
