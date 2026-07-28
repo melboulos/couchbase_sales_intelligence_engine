@@ -96,6 +96,287 @@ CONSERVATIVE_CEILINGS = {
     "llm_complexity_score": 10
 }
 
+# A SEPARATE, less restrictive cap from CONSERVATIVE_CEILINGS above.
+# CONSERVATIVE_CEILINGS fires when recognition itself isn't verified
+# (no real fact at all). This one fires for a different, newly
+# confirmed problem: the company IS verified (a real fact exists),
+# but the model's own scoring reasoning never actually cites any
+# concrete number or scale detail from that fact - it just defaults
+# to the same industry-typical-sounding numbers regardless. Confirmed
+# via real production sampling across hundreds of accounts: roughly
+# half of all verified accounts land on the EXACT SAME combination
+# (workload=25, realtime=20, complexity=20, total=65), spanning
+# completely unrelated industries - the same underlying disease as
+# the narrative genericness problem, just never checked on the
+# scoring side until now.
+UNGROUNDED_SCORE_CEILINGS = {
+    "llm_workload_score": 20,
+    "llm_realtime_score": 15,
+    "llm_complexity_score": 15
+}
+
+# A digit anywhere, or one of these scale-magnitude words, is treated
+# as evidence the reasoning is actually grounded in something
+# concrete rather than generic industry-typical language. Deliberately
+# broad and simple (same discipline as the narrative fix: checking
+# for the ACTUAL confirmed pattern, not an exhaustive taxonomy).
+SCALE_EVIDENCE_KEYWORDS = [
+    "million", "billion", "thousand", "employees", "locations",
+    "branches", "offices", "customers", "users", "transactions",
+    "founded", "assets", "market cap", "headquartered", "revenue",
+]
+
+
+# Extracts a real, comparable magnitude from dollar figures and
+# employee counts found in llm_specific_fact/llm_score_reasoning -
+# confirmed working against real production facts: UCB's "$28.2
+# billion in assets", Staywell's "501-1,000 employees", Wireless
+# Environment's "$24 million revenue" all correctly extracted;
+# Cleo's founding year and Comenity's street address correctly
+# extract nothing (no false positives from unrelated numbers).
+import re
+
+SCALE_DOLLAR_PATTERN = re.compile(r'\$?\s*([\d,]+\.?\d*)\s*(trillion|billion|million|thousand)\b', re.IGNORECASE)
+# Catches "a trillion dollars", "over a billion users" - phrasing
+# with NO digit before the magnitude word at all. Found via testing:
+# Trumid's real fact ("processed over a trillion dollars in trade
+# volume") extracted NOTHING under the digit-only pattern above,
+# since "a" isn't a digit - this phrasing is common enough that
+# missing it meant one of the richest, most obviously "large" facts
+# found all session was silently treated as having no magnitude.
+SCALE_DOLLAR_BARE_PATTERN = re.compile(r'\b(?:a|an)\s+(trillion|billion|million|thousand)\b', re.IGNORECASE)
+SCALE_EMPLOYEE_RANGE_PATTERN = re.compile(r'([\d,]+)\s*-\s*([\d,]+)\+?\s*employees', re.IGNORECASE)
+SCALE_EMPLOYEE_SINGLE_PATTERN = re.compile(r'([\d,]+)\+?\s*employees', re.IGNORECASE)
+
+DOLLAR_MULTIPLIERS = {'thousand': 1e3, 'million': 1e6, 'billion': 1e9, 'trillion': 1e12}
+
+# Employee counts are scaled by this factor to make them roughly
+# comparable to dollar-figure magnitudes for a single bucketing
+# threshold - a deliberately rough heuristic (not a precise
+# equivalence), documented as such rather than presented as exact.
+EMPLOYEE_TO_DOLLAR_SCALE_FACTOR = 100_000
+
+LARGE_SCALE_THRESHOLD = 1_000_000_000   # ~$1B or equivalent
+SMALL_SCALE_THRESHOLD = 10_000_000      # ~$10M or equivalent
+
+LARGE_SCALE_FLOORS = {
+    "llm_workload_score": 35,
+    "llm_realtime_score": 27,
+    "llm_complexity_score": 25,
+}
+SMALL_SCALE_CEILINGS = {
+    "llm_workload_score": 15,
+    "llm_realtime_score": 10,
+    "llm_complexity_score": 10,
+}
+
+
+def extract_dollar_magnitude(text):
+    """
+    Only dollar-figure based magnitude - the ONLY evidence type
+    allowed to trigger the LARGE floor, since dollar figures
+    (revenue, assets, transaction volume) directly measure the
+    thing we're actually estimating (money moving through systems,
+    which correlates with real data processing). Employee count
+    does not reliably correlate with this - see
+    extract_employee_count below.
+    """
+    if not isinstance(text, str):
+        return None
+
+    magnitudes = []
+    for number_str, unit in SCALE_DOLLAR_PATTERN.findall(text):
+        try:
+            magnitudes.append(float(number_str.replace(',', '')) * DOLLAR_MULTIPLIERS[unit.lower()])
+        except ValueError:
+            continue
+
+    for unit in SCALE_DOLLAR_BARE_PATTERN.findall(text):
+        magnitudes.append(1.0 * DOLLAR_MULTIPLIERS[unit.lower()])
+
+    return max(magnitudes) if magnitudes else None
+
+
+def extract_employee_count(text):
+    """
+    Raw employee count - can ONLY trigger the SMALL ceiling, never
+    the LARGE floor. Confirmed via real testing: the US Air Force
+    Life Cycle Management Center's fact ("over 26,000 dedicated
+    professionals") got floored UP to a high score based on
+    headcount alone - but headcount is a poor proxy for database/
+    transaction workload outside businesses where headcount
+    directly correlates with operational volume (a distributor's
+    2,300 employees genuinely does suggest real logistics
+    complexity; a military command's 26,000 personnel says nothing
+    reliable about its technical footprint). A LOW headcount
+    plausibly does suggest a genuinely small operation regardless of
+    industry, which is why it's kept for the small-side check only.
+
+    Uses the MAX count found (not the first or an average) so a
+    company mentioned with multiple different headcount figures
+    isn't mistakenly called "small" based on a partial/team-level
+    number when the overall organization is larger.
+    """
+    if not isinstance(text, str):
+        return None
+
+    counts = []
+    has_range = bool(SCALE_EMPLOYEE_RANGE_PATTERN.search(text))
+    for low, high in SCALE_EMPLOYEE_RANGE_PATTERN.findall(text):
+        try:
+            counts.append((float(low.replace(',', '')) + float(high.replace(',', ''))) / 2)
+        except ValueError:
+            continue
+
+    if not has_range:
+        for count in SCALE_EMPLOYEE_SINGLE_PATTERN.findall(text):
+            try:
+                counts.append(float(count.replace(',', '')))
+            except ValueError:
+                continue
+
+    return max(counts) if counts else None
+
+
+def determine_if_default_score(result):
+    """
+    Final, authoritative call on whether this score reflects real
+    differentiation or is an honest default - so a rep sees a clear
+    label rather than every score looking equally confident. Per the
+    user's own framing: if there isn't enough data to genuinely
+    score an account, that should be a visible, honest label, not a
+    silently-defaulted number indistinguishable from a real one.
+
+    Called LAST in the chain, after enforce_company_recognition_cap,
+    detect_ungrounded_score, and apply_magnitude_based_score_adjustment
+    have all had a chance to run, so it reflects the final state of
+    all three checks.
+    """
+    verified = result.get("llm_recognition_verified") is True
+    magnitude_found = result.get("llm_magnitude_bucket") in ("large", "small", "medium")
+    ungrounded = result.get("llm_score_ungrounded") is True
+
+    if not verified:
+        result["llm_score_is_default"] = True
+    elif magnitude_found:
+        result["llm_score_is_default"] = False
+    elif ungrounded:
+        result["llm_score_is_default"] = True
+    else:
+        result["llm_score_is_default"] = False
+
+    return result
+
+
+SMALL_EMPLOYEE_THRESHOLD = 100  # a rough heuristic, documented as such
+
+
+def apply_magnitude_based_score_adjustment(result):
+    """
+    Goes further than detect_ungrounded_score (which only checks
+    whether ANY evidence is present). This extracts the ACTUAL
+    magnitude from real, search-derived facts and FORCES the score
+    to reflect it - a floor for confirmed large scale (dollar
+    figures only), a ceiling for confirmed small scale (dollar
+    figures OR a low employee count) - regardless of what number the
+    model itself reported. Only applies to verified accounts; if no
+    magnitude can be extracted, this is a no-op (the ungrounded-
+    score check above already handles the zero-evidence case).
+    """
+    if result.get("llm_recognition_verified") is not True:
+        result["llm_magnitude_bucket"] = None
+        return result
+
+    combined_text = (
+        str(result.get("llm_specific_fact", "")) + " " +
+        str(result.get("llm_score_reasoning", ""))
+    )
+    dollar_magnitude = extract_dollar_magnitude(combined_text)
+    employee_count = extract_employee_count(combined_text)
+
+    if dollar_magnitude is not None and dollar_magnitude >= LARGE_SCALE_THRESHOLD:
+        result["llm_magnitude_bucket"] = "large"
+        for field, floor in LARGE_SCALE_FLOORS.items():
+            if result.get(field, 0) < floor:
+                result[field] = floor
+    elif dollar_magnitude is not None and dollar_magnitude < SMALL_SCALE_THRESHOLD:
+        result["llm_magnitude_bucket"] = "small"
+        for field, ceiling in SMALL_SCALE_CEILINGS.items():
+            if result.get(field, 0) > ceiling:
+                result[field] = ceiling
+    elif employee_count is not None and employee_count < SMALL_EMPLOYEE_THRESHOLD:
+        result["llm_magnitude_bucket"] = "small"
+        for field, ceiling in SMALL_SCALE_CEILINGS.items():
+            if result.get(field, 0) > ceiling:
+                result[field] = ceiling
+    elif dollar_magnitude is not None or employee_count is not None:
+        result["llm_magnitude_bucket"] = "medium"
+    else:
+        result["llm_magnitude_bucket"] = None
+
+    result["llm_total_score"] = (
+        result.get("llm_workload_score", 0)
+        + result.get("llm_realtime_score", 0)
+        + result.get("llm_complexity_score", 0)
+    )
+
+    return result
+
+
+def detect_ungrounded_score(result):
+    """
+    Only applies to VERIFIED companies (a real fact already passed
+    validate_recognition_evidence) - enforce_company_recognition_cap
+    already handles the unverified case. This catches a company that
+    IS genuinely recognized, but whose scoring reasoning never
+    actually cites the scale/evidence that would justify a
+    mid-to-high score, landing on the same default numbers as
+    everything else regardless.
+    """
+    if result.get("llm_recognition_verified") is not True:
+        result["llm_score_ungrounded"] = False
+        return result
+
+    combined_text = normalize_text(
+        str(result.get("llm_score_reasoning", "")) + " " +
+        str(result.get("llm_specific_fact", ""))
+    )
+
+    has_digit = any(char.isdigit() for char in combined_text)
+    has_scale_keyword = any(keyword in combined_text for keyword in SCALE_EVIDENCE_KEYWORDS)
+    is_grounded = has_digit or has_scale_keyword
+
+    result["llm_score_ungrounded"] = not is_grounded
+
+    if is_grounded:
+        return result
+
+    capped_any = False
+    for field, ceiling in UNGROUNDED_SCORE_CEILINGS.items():
+        value = result.get(field, 0)
+        if isinstance(value, (int, float)) and value > ceiling:
+            result[field] = ceiling
+            capped_any = True
+
+    if capped_any:
+        result["llm_total_score"] = (
+            result.get("llm_workload_score", 0)
+            + result.get("llm_realtime_score", 0)
+            + result.get("llm_complexity_score", 0)
+        )
+        result["llm_score_reasoning"] = (
+            str(result.get("llm_score_reasoning", "")) +
+            " [CODE-ENFORCED CAP: recognition was verified but the "
+            "scoring reasoning never cited any concrete number or "
+            "scale detail (no digit, no scale-magnitude keyword) - "
+            "clamped in code rather than trusted as reported, since "
+            "this exact gap produced a confirmed 50%+ convergence "
+            "rate onto the same default score across unrelated "
+            "companies.]"
+        )
+
+    return result
+
 # Phrases that indicate llm_specific_fact is really just the
 # industry category restated, not a genuine fact about the
 # named company. Testing showed even "recognized" accounts
@@ -814,6 +1095,24 @@ def build_couchbase_pov_from_parts(result):
     constraint = normalize_text(result.get("specific_constraint", ""))
     solution = result.get("distributed_solution", "")
 
+    # Code-level fallback, not just a prompt instruction - confirmed
+    # necessary via real data: 162 real accounts (4.6% of a full
+    # production run) left this field completely empty, discarding
+    # the ENTIRE account's validation over one missing sentence.
+    # Same lesson as everywhere else this session: don't trust an
+    # instruction alone to fix a behavior - give it a real,
+    # code-enforced backstop too.
+    if not solution or not str(solution).strip():
+        solution = (
+            "Insufficient information to connect a specific "
+            "distributed-database benefit to this constraint."
+        )
+        result["llm_distributed_solution_defaulted"] = True
+    else:
+        result["llm_distributed_solution_defaulted"] = False
+
+    result["distributed_solution"] = solution
+
     violated = any(word in constraint for word in CONSTRAINT_BANNED_WORDS)
     result["llm_constraint_violated"] = violated
 
@@ -893,6 +1192,9 @@ def validate_llm_output(result, raw_text, account_name):
     validate_independent_score(result)
     validate_recognition_evidence(result)
     enforce_company_recognition_cap(result)
+    detect_ungrounded_score(result)
+    apply_magnitude_based_score_adjustment(result)
+    determine_if_default_score(result)
     apply_narrative_caveat(result)
     detect_generic_narrative(result)
     detect_generic_discovery(result)

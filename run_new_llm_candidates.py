@@ -107,6 +107,9 @@ llm_merge_columns = [
     "llm_constraint_violated",
     "llm_used_web_search",
     "llm_defunct_detected",
+    "llm_score_ungrounded",
+    "llm_magnitude_bucket",
+    "llm_distributed_solution_defaulted",
     "llm_score_reasoning"
 ]
 llm_merge_columns = [c for c in llm_merge_columns if c in validated_llm_accounts.columns]

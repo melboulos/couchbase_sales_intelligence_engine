@@ -70,7 +70,12 @@ qualified = accounts[accounts["run_llm"] == True].copy()
 print(f"Currently-qualified accounts to force-rerun: {len(qualified)}")
 
 print(f"Loading checkpoint: {CHECKPOINT_FILE}")
-checkpoint = pd.read_excel(CHECKPOINT_FILE)
+import os
+if os.path.exists(CHECKPOINT_FILE):
+    checkpoint = pd.read_excel(CHECKPOINT_FILE)
+else:
+    print("No existing checkpoint found - starting completely fresh.")
+    checkpoint = pd.DataFrame(columns=["Account Name", "llm_validation", "llm_used_web_search"])
 print(f"Checkpoint rows before reset: {len(checkpoint)}")
 
 qualified_names = set(qualified["Account Name"])
@@ -153,6 +158,9 @@ llm_merge_columns = [
     "llm_constraint_violated",
     "llm_used_web_search",
     "llm_defunct_detected",
+    "llm_score_ungrounded",
+    "llm_magnitude_bucket",
+    "llm_distributed_solution_defaulted",
     "llm_score_reasoning"
 ]
 llm_merge_columns = [c for c in llm_merge_columns if c in validated_llm_accounts.columns]

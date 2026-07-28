@@ -245,6 +245,22 @@ Connect both fields directly to what you wrote in ENGINEERING
 INTERPRETATION. If you did not mention a characteristic
 there, do not introduce it here for the first time.
 
+HARD RULE: this field must NEVER be left empty. Confirmed via
+real production data: for businesses where a database angle
+isn't obvious (a nonprofit retailer, a staffing firm, a
+mental health provider, a real estate franchise), this field
+was left completely blank in 162 real cases - almost
+certainly because writing something honest that also
+satisfies every rule above felt impossible, and leaving it
+blank seemed like the only way out. It is not. If you
+genuinely cannot connect a distributed-database benefit to
+the constraint without forcing something generic or
+fabricated, say so directly: "Insufficient information to
+connect a specific distributed-database benefit to this
+constraint." That sentence is a valid, complete answer. Do
+NOT leave this field empty under any circumstance - an empty
+field fails validation and the entire response is discarded.
+
 This is an engineering discussion topic, not a product
 pitch.
 
@@ -421,6 +437,22 @@ fresh industry generalization. If llm_specific_fact is
 score conservatively. Then sum the three for a total out
 of 100.
 
+HARD RULE, enforced by code, not just requested: your
+reasoning must cite an actual number or concrete scale
+detail (employee count, revenue, transaction volume,
+customer count, locations, founding year, or similar) -
+not a generic description of what the industry typically
+involves. Confirmed by directly auditing real production
+output: roughly half of all "recognized" accounts landed
+on the EXACT SAME combination (workload=25, realtime=20,
+complexity=20, total=65) regardless of what the company
+actually does, because the reasoning never cited anything
+that would justify differentiating one company from
+another. If your reasoning doesn't cite a real number, your
+scores will be capped in code regardless of what you report
+here - so there is no benefit to guessing a plausible-
+sounding number without real evidence behind it.
+
 Do NOT try to guess or match what a deterministic
 scoring system might produce. Score based on your own
 independent judgment only.
@@ -535,4 +567,51 @@ Schema
   "llm_score_reasoning":""
 }}
 
+"""
+
+
+def build_score_reevaluation_prompt(account_name, fact, workload_score, realtime_score, complexity_score):
+    total_score = workload_score + realtime_score + complexity_score
+
+    return f"""
+You previously analyzed this company and produced a fact and a
+score. Your job now is NOT to generate anything new - it is to
+CHECK whether the score you already gave actually matches the
+evidence in the fact you already gave.
+
+Account: {account_name}
+
+Fact you previously stated:
+{fact}
+
+Score you previously gave:
+workload={workload_score}/40, realtime={realtime_score}/30,
+complexity={complexity_score}/30 (total={total_score}/100)
+
+Confirmed via real production analysis: a large share of scores
+default to the same generic combination regardless of what the
+fact actually says - a company with billions in revenue and a
+company with a few million dollars in revenue sometimes receive
+the identical score, because the evidence was cited but never
+actually used to differentiate the number.
+
+Judge this specific case:
+- If the fact describes large scale (billions in transactions/
+  assets/revenue, thousands of employees, major national or
+  global reach) but the score is only moderate or low, RAISE it.
+- If the fact describes small or narrow scale (a small regional
+  business, a niche product, limited reach, a modest revenue
+  figure) but the score is high, LOWER it.
+- If the score genuinely already reflects the fact's scale, leave
+  it unchanged - do not change a number just to appear to have
+  done something.
+
+Return ONLY this JSON, nothing else:
+{{
+  "llm_workload_score": <integer 0-40>,
+  "llm_realtime_score": <integer 0-30>,
+  "llm_complexity_score": <integer 0-30>,
+  "llm_reeval_changed": true or false,
+  "llm_reeval_reasoning": "one sentence citing the specific evidence that justifies your decision"
+}}
 """

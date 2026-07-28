@@ -82,7 +82,11 @@ def is_excluded_provider(account_name):
 # =====================================================
 
 KEYWORD_FALSE_POSITIVE_EXCLUSIONS = {
-    "card": ["cardinal", "wildcard"],
+    # "cardiology" added later than "cardinal"/"wildcard" - found via
+    # real production data (American College of Cardiology got a
+    # fraud/payments narrative via this exact substring), documented
+    # at the time but never actually added to this list until now.
+    "card": ["cardinal", "wildcard", "cardiology"],
 
     # "media" is a substring of several common, unrelated words
     # and corporate-structuring terms. Found via real accounts in
@@ -103,7 +107,27 @@ KEYWORD_FALSE_POSITIVE_EXCLUSIONS = {
     # Efficiency and Renewable Energy" and "Department of Energy
     # - Oak Ridge National Lab" were both incorrectly tagged
     # utilities_platform via this keyword.
-    "energy": ["department of energy", "national lab", "national laboratory"]
+    "energy": ["department of energy", "national lab", "national laboratory"],
+
+    # "api" is a substring of "Capital" - found via real production
+    # data: "KPS Capital Partners, LP" (a private equity firm) got
+    # tagged api_platform/"Technology / SaaS" purely because "api"
+    # sits inside "c-API-tal", the same root cause as an earlier,
+    # never-fixed known issue (H.I.G. Capital Management showing the
+    # identical bug). Systematically checked against a real English
+    # word list before deciding this was the fix, not a one-off
+    # patch - "capital" was the only realistic, common business-name
+    # collision found for this keyword.
+    "api": ["capital"],
+
+    # "power" is a substring of "Empower" - a large, real retirement/
+    # financial services company (Empower Retirement), not a
+    # utility. Found via the same systematic word-list check that
+    # surfaced the "api"/"capital" collision above - not yet
+    # confirmed in production data the way the others were, but the
+    # collision is real and the company is large enough that it's
+    # worth closing before it's found the hard way.
+    "power": ["empower"]
 }
 
 

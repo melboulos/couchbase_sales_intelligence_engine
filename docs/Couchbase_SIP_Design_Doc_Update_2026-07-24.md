@@ -799,3 +799,111 @@ word-level prompt engineering can reach - documented as a known
 limitation rather than pursued through a fourth round of word bans,
 given three consecutive attempts showing the same diminishing
 return.
+
+---
+
+## Same-day follow-up: three more substring fixes, and drawing a real line on what gets fixed in code
+
+### Two more real substring-collision bugs found via systematic testing, one gap closed
+
+`KEYWORD_FALSE_POSITIVE_EXCLUSIONS` gained three entries after
+testing every short (<=5 char) keyword across the entire pattern
+file against a real English word list, not just reacting to the
+next bug found by chance: `"api"` (matched inside "Capital" -
+confirmed real via KPS Capital Partners, LP getting tagged
+`api_platform`/"Technology, SaaS" via `c-API-tal`, the same root
+cause as the earlier, never-actually-fixed H.I.G. Capital
+Management issue), `"power"` (matched inside "Empower" - a large
+real financial services company, not a utility - found
+preemptively via the same systematic check, not yet seen in
+production), and `"cardiology"` added to the existing `"card"`
+entry (closing a gap that was found and documented earlier this
+session but never actually added to the exclusion list).
+
+### A random, blind sample check - not bug-hunting, measuring the real rate
+
+At the user's explicit direction ("I don't want to chase isolated
+bug fixes... I'm looking to make sure what we're delivering is
+predominantly accurate"), pulled two independent random samples of
+60 verified accounts each and judged fact-vs-score alignment
+directly - a genuinely different exercise from every targeted
+spot-check earlier this session. Found and named four distinct
+patterns through this process:
+
+- **Outside-knowledge leak** (Epic Games, Detroit Tigers): the
+  model describes things about a well-known company that never
+  appear in the given fact - not filling a gap with a guess, but
+  overriding what's actually stated with background training
+  knowledge. Confirmed as a worse variant on Nikon Inc.: the fact
+  explicitly states "51-200 employees," and the narrative describes
+  "Nikon's large customer base" anyway - contradicting stated
+  evidence, not just supplementing thin evidence.
+- **Wrong-type-evidence** (KPS Capital Partners, US Air Force
+  AFLCMC/LZIA): a real, specific number cited, but one that doesn't
+  measure the thing actually being estimated - assets under
+  management measures money managed for others, not KPS's own
+  systems; headcount doesn't correlate with database workload
+  outside businesses where it plausibly does (a distributor,
+  confirmed earlier, versus a military command or an investment
+  firm).
+- **Thin-fact-defaults-upward** (Manta, Cornerstone Information
+  Systems, ReviewTrackers): near-zero concrete detail in the fact,
+  score still lands in the familiar mid-to-high range regardless -
+  the same root disease as the narrative genericness problem,
+  confirmed to also affect the score.
+- **Genuinely aligned, including correctly-low scores** (Hiller
+  Companies, Five Star Senior Living, Museum of Modern Art): real
+  or honestly-vague evidence, score genuinely tracks it - including
+  cases where a LOW score with specific real reasoning is the
+  correct call, not just high scores backed by evidence.
+
+### A discovery-phase regression found in the same review
+
+Reviewing full narrative content (not just facts/scores) surfaced
+a partial regression on the Discovery Strategy fix from the prior
+session: Phase 4's objective ("Determine whether operational
+database architecture is worth discussing further") is a near-
+verbatim reconstruction of the exact phrase banned earlier
+("Determine whether operational database architecture is becoming
+a discussion"). Found in 4 of 5 manually reviewed accounts
+(Resorts Casino Hotel, Apollo Retail Specialists, Cardtronics,
+Nikon Inc.) - Nestle North America was the one exception, correctly
+producing account-specific Phase 4 language. The pattern correlates
+with fact richness: accounts with strong specific facts (Cardtronics,
+Nestle) show good Phase 1-3 content regardless of Phase 4; accounts
+with thin facts show generic language throughout, Phase 4 included.
+
+### The real decision made today: where to stop fixing in code
+
+Every fix that has actually held up this session - the dollar-figure
+magnitude floor, defunct-company detection, the revert-unbacked-
+increase rule, the three substring exclusions above - worked because
+there was a clean, deterministic signal to check: a real number, a
+specific phrase, a stored before/after comparison. Explicitly decided
+NOT to chase the patterns found in this review (brand-knowledge
+override, the Phase 4 regression, thin-fact defaults) with further
+narrow code patches, for a specific, principled reason: none of them
+have an equivalent clean signal. "Is this describing something from
+the given fact or from training knowledge" is a semantic judgment,
+not a deterministic check - the same reasoning that already applies
+to the accepted pure-fabrication risk (BayMark, Pfizer, Microvast).
+Tightening one narrow parameter (e.g. the small-employee threshold,
+to catch Nikon's 51-200 range) would only shift the failure to the
+next account just outside whatever new boundary is chosen - the same
+whack-a-mole dynamic already observed with the "card"/"media"/"energy"
+keyword exclusions, just with a fuzzier trigger. Documented explicitly
+as accepted, known limitations rather than pursued further.
+
+### Mission-statement alignment check
+
+Re-read the README's Mission section together mid-session: "The COI
+score is only a prioritization mechanism. The real goal is seller
+intelligence... The LLM never scores or qualifies accounts." Confirmed
+via direct code inspection that `llm_total_score` (the independent
+score this session invested heavily in correcting) does not appear
+anywhere in `build_ae_call_list.py` and does not drive sort order
+(`sort_values("overall_coi")` does) - it genuinely isn't shown to reps
+today. This reframed the back half of the session: the narrative
+content (`engineering_implications`, `couchbase_point_of_view`,
+`discovery_progression`) is what the mission's five stated questions
+are actually about, and is where review effort shifted accordingly.
