@@ -95,7 +95,6 @@ HEADER_FONT = Font(name="Arial", bold=True, color="FFFFFF", size=16)
 HEADER_FILL = PatternFill(start_color="2F5496", end_color="2F5496", fill_type="solid")
 TITLE_FONT = Font(name="Arial", bold=True, size=17, color="FFFFFF")
 TITLE_FILL = PatternFill(start_color="1F3864", end_color="1F3864", fill_type="solid")
-KPI_LABEL_FONT = Font(name="Arial", size=13, color="595959")
 KPI_VALUE_FONT = Font(name="Arial", bold=True, size=27, color="1F3864")
 LABEL_FONT = Font(name="Arial", bold=True, size=13, color="2F5496")
 BODY_FONT = Font(name="Arial", size=13)
@@ -129,6 +128,13 @@ BRIEF_PRESSURE_BAR_FONT = Font(name="Courier New", size=13)
 OVERVIEW_HEADER_FONT = Font(name="Arial", bold=True, color="FFFFFF", size=16)
 OVERVIEW_BODY_FONT = Font(name="Arial", size=15)
 OVERVIEW_LINK_FONT = Font(name="Arial", size=15, color="0563C1", underline="single")
+
+# SIP/Top 20-specific fonts. BODY_FONT/LINK_FONT above are still used
+# by Full Landscape's data rows, which weren't asked to change here -
+# bumping those shared constants directly would have resized Full
+# Landscape's table body as an unintended side effect.
+SIP_BODY_FONT = Font(name="Arial", size=16)
+SIP_LINK_FONT = Font(name="Arial", size=16, color="0563C1", underline="single")
 
 checkpoint("Styles defined")
 
@@ -218,12 +224,12 @@ total_scored = len(accounts)
 total_qualified = len(call_list)
 total_tier1 = int((accounts["priority_tier"] == "Tier 1 Strategic").sum())
 total_tier2 = int((accounts["priority_tier"] == "Tier 2 Strong Target").sum())
-actionable_pct = round(100 * total_qualified / total_scored, 1) if total_scored > 0 else 0
+actionable_pct_fraction = (total_qualified / total_scored) if total_scored > 0 else 0
 
 kpis = [
     ("Total Accounts Scored", total_scored),
     ("Actionable Accounts (Tier 1\u20133)", total_qualified),
-    ("Actionable %", f"{actionable_pct}%"),
+    ("Actionable %", actionable_pct_fraction),
     ("Tier 1 Strategic", total_tier1),
     ("Tier 2 Strong Target", total_tier2)
 ]
@@ -233,13 +239,21 @@ for label, value in kpis:
     label_cell = ws_summary.cell(row=3, column=kpi_col)
     value_cell = ws_summary.cell(row=4, column=kpi_col)
     label_cell.value = label
-    label_cell.font = KPI_LABEL_FONT
+    label_cell.font = Font(name="Arial", bold=True, size=16, color="FFFFFF")
+    label_cell.fill = HEADER_FILL
     label_cell.alignment = CENTER
     value_cell.value = value
     value_cell.font = KPI_VALUE_FONT
     value_cell.alignment = CENTER
+    if label == "Actionable %":
+        # Real number (a fraction), formatted with Excel's native
+        # percent format - not a Python string with a literal "%"
+        # appended, which is exactly what triggers Excel's genuine
+        # "Number Stored as Text" warning (confirmed via screenshot).
+        value_cell.number_format = "0.0%"
     ws_summary.merge_cells(start_row=3, start_column=kpi_col, end_row=3, end_column=kpi_col + 1)
     ws_summary.merge_cells(start_row=4, start_column=kpi_col, end_row=4, end_column=kpi_col + 1)
+    ws_summary.row_dimensions[3].height = 26
     ws_summary.row_dimensions[4].height = 34
     kpi_col += 2
 
@@ -247,13 +261,12 @@ checkpoint("KPI row written")
 
 header_row = 7
 n_cols = len(industry_summary.columns)
-# TABLE_BOX_COLS extends the visible box border out to column J to
-# match the title bar and KPI row width above (both A:J). Real data
-# only exists through column G (n_cols=7); H-J are blank bordered
-# filler cells so the whole thing reads as one continuous box
-# instead of the table looking narrower than what's above it.
-TABLE_BOX_COLS = 10
-for col_idx in range(1, TABLE_BOX_COLS + 1):
+# Table (header + data) spans only its real A:G columns - the page
+# title and KPI row above are wider (A:J) but that's fine on its own;
+# it was specifically the table's own header extending past its real
+# data that looked wrong, since a table header implies a table below
+# it, not a page-level summary bar.
+for col_idx in range(1, n_cols + 1):
     cell = ws_summary.cell(row=header_row, column=col_idx)
     cell.font = HEADER_FONT
     cell.fill = HEADER_FILL
@@ -261,7 +274,7 @@ for col_idx in range(1, TABLE_BOX_COLS + 1):
     cell.border = BOX_BORDER
 ws_summary.row_dimensions[header_row].height = 28
 
-summary_widths = {"A": 32, "B": 17, "C": 30, "D": 19, "E": 12, "F": 12, "G": 12, "H": 14, "I": 14, "J": 13}
+summary_widths = {"A": 32, "B": 21, "C": 30, "D": 19, "E": 12, "F": 12, "G": 12, "H": 14, "I": 14, "J": 13}
 for col, width in summary_widths.items():
     ws_summary.column_dimensions[col].width = width
 
@@ -270,13 +283,12 @@ last_data_row = header_row + len(industry_summary)
 
 for row_idx in range(first_data_row, last_data_row + 1):
     ws_summary.row_dimensions[row_idx].height = 24
-    for col_idx in range(1, TABLE_BOX_COLS + 1):
+    for col_idx in range(1, n_cols + 1):
         cell = ws_summary.cell(row=row_idx, column=col_idx)
         cell.border = BOX_BORDER
-        if col_idx <= n_cols:
-            cell.font = BODY_FONT
-            if col_idx > 1:
-                cell.alignment = CENTER
+        cell.font = BODY_FONT
+        if col_idx > 1:
+            cell.alignment = CENTER
 
 checkpoint("Summary table styled")
 
@@ -357,6 +369,17 @@ for col, width in overview_widths.items():
 # truncating or forcing every row taller than it needs to be.
 CHARS_PER_LINE_AT_OVERVIEW_A_WIDTH = 30
 
+# NOTE: a "Confidence" column (Web-Verified / Not Company-Verified) was
+# tried here on 2026-07-29 and reverted the same day. Real data showed
+# 99.7% of accounts (3,567 of 3,579) are Web-Verified - since the
+# pipeline attempts web grounding for nearly every qualifying account
+# by design, that flag isn't a decision-relevant signal for a rep, just
+# confirmation the pipeline did its job. Not worth a column for that.
+# If this is revisited, the useful version would only surface the rare
+# Not Company-Verified exception (11 accounts), not all three states -
+# see caveat_marker/web_search_marker in the Call Briefs section below
+# for the equivalent logic on that sheet.
+
 # Priority tier -> fill color, for at-a-glance scanning without reading text
 TIER_FILLS = {
     "Tier 1 Strategic": PatternFill(start_color="C0DD97", end_color="C0DD97", fill_type="solid"),
@@ -379,8 +402,10 @@ for i, row in call_list.iterrows():
     ws_overview.cell(row=excel_row, column=4, value=row.get("industry", "")).font = OVERVIEW_BODY_FONT
     ws_overview.cell(row=excel_row, column=5, value=row.get("business_model", "")).font = OVERVIEW_BODY_FONT
     ws_overview.cell(row=excel_row, column=6, value=row.get("Account Owner", "")).font = OVERVIEW_BODY_FONT
-    for col_idx in range(2, 6):
-        ws_overview.cell(row=excel_row, column=col_idx).alignment = CENTER
+    for col_idx in range(2, 7):
+        cell = ws_overview.cell(row=excel_row, column=col_idx)
+        cell.alignment = CENTER
+        cell.border = BOX_BORDER
 
 ws_overview.freeze_panes = "A2"
 
@@ -708,7 +733,7 @@ ws_top20.column_dimensions["A"].width = 11
 ws_top20.column_dimensions["B"].width = 32
 ws_top20.column_dimensions["C"].width = 10
 ws_top20.column_dimensions["D"].width = 24
-ws_top20.column_dimensions["E"].width = 105
+ws_top20.column_dimensions["E"].width = 120
 ws_top20.column_dimensions["F"].width = 34
 
 # Splash banner, three tiers:
@@ -741,10 +766,10 @@ ws_top20.row_dimensions[2].height = 34
 ws_top20.merge_cells("A3:F3")
 top20_subtitle = ws_top20["A3"]
 top20_subtitle.value = "\U0001F3AF Top 20 Accounts to Call"
-top20_subtitle.font = Font(name="Arial", bold=True, size=14, color="FFFFFF")
+top20_subtitle.font = Font(name="Arial", bold=True, size=16, color="FFFFFF")
 top20_subtitle.fill = HEADER_FILL
 top20_subtitle.alignment = Alignment(horizontal="center", vertical="center")
-ws_top20.row_dimensions[3].height = 24
+ws_top20.row_dimensions[3].height = 26
 
 table_header_row = 4
 headers = ["Rank", "Account", "COI", "Workload Profile", "Why Couchbase", "Recommended First Contact"]
@@ -762,42 +787,46 @@ ws_top20.row_dimensions[table_header_row].height = 40
 # not a fixed guess - a fixed 32pt row was clipping longer sentences
 # even though the column itself was wide enough, since wrap_text
 # still needs enough row height to actually show every wrapped line.
-CHARS_PER_LINE_AT_E_WIDTH = 100
+CHARS_PER_LINE_AT_E_WIDTH = 90
 
 for i, (_, row) in enumerate(top_20.iterrows()):
     r = table_header_row + 1 + i
     rank_cell = ws_top20.cell(row=r, column=1, value=i + 1)
-    rank_cell.font = BODY_FONT
+    rank_cell.font = SIP_BODY_FONT
+    rank_cell.alignment = Alignment(horizontal="center", vertical="top")
     rank_cell.border = BOX_BORDER
 
     account_cell = ws_top20.cell(row=r, column=2, value=row.get("Account Name", ""))
-    account_cell.font = LINK_FONT
+    account_cell.font = SIP_LINK_FONT
+    account_cell.alignment = Alignment(vertical="top")
     account_cell.border = BOX_BORDER
     account_name_lookup = row.get("Account Name", "")
     if account_name_lookup in account_brief_row_lookup:
         account_cell.hyperlink = f"#'Call Briefs'!A{account_brief_row_lookup[account_name_lookup]}"
 
     coi_cell = ws_top20.cell(row=r, column=3, value=row.get("overall_coi", ""))
-    coi_cell.font = BODY_FONT
+    coi_cell.font = SIP_BODY_FONT
+    coi_cell.alignment = Alignment(horizontal="left", vertical="top")
     coi_cell.border = BOX_BORDER
 
     workload_cell = ws_top20.cell(row=r, column=4, value=row.get("workload_profile", ""))
-    workload_cell.font = BODY_FONT
+    workload_cell.font = SIP_BODY_FONT
+    workload_cell.alignment = Alignment(vertical="top")
     workload_cell.border = BOX_BORDER
 
     why_text = row.get("why_couchbase", "")
     why_cell = ws_top20.cell(row=r, column=5, value=why_text)
-    why_cell.font = BODY_FONT
+    why_cell.font = SIP_BODY_FONT
     why_cell.alignment = WRAP
     why_cell.border = BOX_BORDER
 
     contact_cell = ws_top20.cell(row=r, column=6, value=row.get("recommended_contact", ""))
-    contact_cell.font = BODY_FONT
+    contact_cell.font = SIP_BODY_FONT
     contact_cell.alignment = WRAP
     contact_cell.border = BOX_BORDER
 
     line_estimate = max(1, (len(str(why_text)) // CHARS_PER_LINE_AT_E_WIDTH) + 1)
-    ws_top20.row_dimensions[r].height = max(24, line_estimate * 20)
+    ws_top20.row_dimensions[r].height = max(28, line_estimate * 25)
 
 table_end_row = table_header_row + len(top_20)
 
@@ -815,12 +844,12 @@ drivers_header_row = table_end_row + 3
 ws_top20.merge_cells(start_row=drivers_header_row, start_column=1, end_row=drivers_header_row, end_column=2)
 drivers_title = ws_top20.cell(row=drivers_header_row, column=1)
 drivers_title.value = "\U0001F4CA Top Opportunity Drivers"
-drivers_title.font = Font(name="Arial", bold=True, size=14, color="1F3864")
+drivers_title.font = Font(name="Arial", bold=True, size=16, color="1F3864")
 
 for i, (profile, pct) in enumerate(driver_pcts.items()):
     r = drivers_header_row + 1 + i
-    ws_top20.cell(row=r, column=1, value=f"\u2022 {pct}%").font = Font(name="Arial", bold=True, size=13)
-    ws_top20.cell(row=r, column=2, value=str(profile)).font = BODY_FONT
+    ws_top20.cell(row=r, column=1, value=f"\u2022 {pct}%").font = Font(name="Arial", bold=True, size=16)
+    ws_top20.cell(row=r, column=2, value=str(profile)).font = SIP_BODY_FONT
 
 # Tier Distribution chart sits BELOW the main table, in the empty
 # whitespace at columns C onward next to the Top Opportunity Drivers

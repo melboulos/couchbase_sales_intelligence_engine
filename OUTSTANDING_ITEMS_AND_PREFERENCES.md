@@ -135,7 +135,87 @@
   fix. If this resurfaces, the small-n problem is the thing to re-litigate,
   not the diluted-average complaint that started it.
 
-## Already confirmed correct (don't re-relitigate without new evidence)
+## Tried and reverted, same day: Overview confidence/verification column
+
+- Built a "Confidence" column (G) on Overview on 2026-07-29, reusing the
+  same three-state logic already on Call Briefs, filterable via the
+  existing `auto_filter`. **Reverted the same day** once real data showed
+  why it wasn't useful: 3,567 of 3,579 accounts (99.7%) are Web-Verified,
+  since the pipeline attempts web grounding for nearly every qualifying
+  account by design. A filter that doesn't meaningfully narrow the list
+  isn't a real filter - it was just visual reassurance dressed up as a
+  filtering feature. If this is revisited, the useful version would only
+  surface the rare exception (the 11 Not Company-Verified accounts), not
+  all three states with equal visual weight - see
+  `caveat_marker`/`web_search_marker` in the Call Briefs section for the
+  equivalent logic already working correctly on that sheet.
+
+## Resolved: SIP/Top 20 sheet font consistency and alignment
+
+- ✅ Body font (Rank, Account, COI, Workload, Why Couchbase, Recommended
+  First Contact, plus the Top Opportunity Drivers list below the table)
+  bumped 13→16pt to match the header, via new SIP-scoped font constants
+  (`SIP_BODY_FONT`, `SIP_LINK_FONT`) so Full Landscape's own data-row font
+  (still 13pt, untouched) wasn't affected as a side effect.
+- ✅ Why Couchbase row-height chars-per-line recalibrated again (100→80) to
+  account for the larger font on top of the earlier width change, so long
+  entries don't end up under-estimated for height.
+- ✅ COI column left-justified to match the other (text) columns - it was
+  defaulting to Excel's general alignment, which right-aligns numbers,
+  while every text column defaults left - hence the visual inconsistency.
+- ✅ Rank column center-justified (a deliberate choice over left, since a
+  short 1-20 index column reads cleaner centered and visually distinguishes
+  "this is an index" from "this is data").
+
+## Resolved: Full Landscape "Total Accounts" header clipping
+
+- ✅ Column B widened 17→21 - the header text was fine at the old 14pt
+  font but started clipping once the header font was bumped to 16pt in an
+  earlier fix; the two changes needed to land together.
+
+## Resolved: SIP subtitle, Overview borders, Full Landscape KPI/table
+## alignment, and a real data-integrity bug
+
+- ✅ SIP sheet subtitle ("🎯 Top 20 Accounts to Call") was missed in the
+  earlier header-font unification pass - bumped 14→16 to match everything
+  else on that sheet.
+- ✅ Fixed an off-by-one in Overview (`range(2, 6)` should have been
+  `range(2, 7)`) that meant Account Owner (column 6) never got the same
+  border or center alignment as the other columns - a pre-existing bug,
+  not something introduced today, just found while widening border
+  coverage to all columns per request.
+- ✅ Full Landscape KPI labels (Total Accounts Scored, Actionable %, etc.)
+  were small gray text with no fill - visually weak next to everything
+  else on the sheet that had been bumped to 16pt/bold this session.
+  Matched to the industry table's own header treatment instead (bold
+  white 16pt text on the same blue fill) - chosen specifically for
+  reliable contrast regardless of color vision, not a color-based cue.
+- ✅ Full Landscape table box: went through several iterations same day
+  before landing correctly. The table header row's blue fill/border had
+  been extended out to column J to match the title/KPI width above
+  (an earlier "Option B" fix), with blank bordered filler cells in H:J
+  for the data rows below it. Removing those filler borders (looked like
+  an empty grid of boxes) then made the header's H:J extension look
+  disconnected from anything below it. Resolved by reverting the table
+  header itself back to stop at column G (its real width) - confirmed
+  fine for the page title and KPI row above to stay wider at A:J on
+  their own; the actual problem was specifically a table header implying
+  a table below it that didn't exist past G.
+- ✅ **Real bug, not a false alarm**: the Actionable % KPI box (the big
+  number under the "Actionable %" label, not the industry table's own
+  Actionable % column - two different things with the same name) was
+  built as a literal Python string (`f"{actionable_pct}%"`, e.g. the text
+  `"36.7%"`) rather than a real number. This is exactly what triggers
+  Excel's genuine "Number Stored as Text" warning - confirmed via
+  screenshot showing the actual warning triangle and tooltip. Fixed by
+  storing the value as a true fraction (`actionable_pct_fraction`) with
+  Excel's native `"0.0%"` number format, so it displays identically but
+  is a real, computable number. Worth remembering: don't assume a visual
+  complaint is styling-only before checking the underlying value/type -
+  this one turned out to be a genuine data-integrity bug hiding behind
+  what looked like a cosmetic complaint.
+
+
 
 - Actionable % column values are mathematically verified correct against
   real per-industry tier counts.
