@@ -1,36 +1,124 @@
 # Couchbase Sales Intelligence Engine — Outstanding Items & Working Preferences
 
-## Outstanding: Top 20 Accounts sheet
+## Resolved: Top 20 Accounts sheet
 
-- Move the Tier Distribution pie chart back to sitting BELOW the table, not beside it.
-- Revert "Why Couchbase" back to the full first sentence — the 15-word truncation was tried and rejected.
-- Widen the "Recommended First Contact" column — currently too narrow.
-- Header row needs to accommodate "Recommended First Contact" properly — currently cramped/cut off, needs more height or to wrap.
-- Both charts (pie + bar) are too small — labels and text run into each other. Needs bigger dimensions and more spacing between the two charts so they don't collide.
-- "Top Opportunity Drivers" percentages are getting cut off — column too narrow for the text.
+- ✅ Tier Distribution pie chart moved from beside the table to below it, into
+  the whitespace next to the Top Opportunity Drivers list.
+- ✅ Industry Opportunity Distribution bar chart was anchored on top of its
+  own source data table (same row *and* same columns) — this was the actual
+  cause of the "charts collide" complaint, not just a sizing issue. Moved
+  below the pie chart with real vertical spacing.
+- ✅ Both charts enlarged.
+- ✅ "Recommended First Contact" column widened; header now wraps to two
+  lines with a taller header row instead of being cut off.
+- ✅ Column A widened (was serving double duty: short Rank numbers up top,
+  and the wider "Top Opportunity Drivers" percentage bullets further down —
+  the bullets were the ones getting clipped).
+- ✅ "Why Couchbase" — root cause was `get_why_couchbase()` truncating to the
+  first sentence, then capping that at 15 words with "...". This was already
+  supposed to be reverted per earlier notes but was still live in code.
+  Fixed to return the full `couchbase_point_of_view` text untouched, wrapped.
+  Row heights already scaled dynamically from real text length, so no
+  separate height fix was needed once the text itself stopped being cut.
 
-## Outstanding: Full Landscape sheet
+## Resolved: Full Landscape sheet
 
-- **Avg COI (Actionable) "looks too low."** Verified twice with real data: the math is correct — it excludes Tier 4 and averages only Tier 1-3. Confirmed root cause: in most industries, Tier 3 vastly outnumbers Tier 1+2 combined (e.g., Technology/SaaS: 1,400 Tier 3 vs. 5 combined Tier 1+2), so the "actionable" average is mostly a Tier 3 average by volume, which reads as unimpressively middling even though it's mathematically honest. **Proposed fix, not yet built or agreed upon: add a second column, "Avg COI (Tier 1-2 only)," so a rep can see both "how strong are our very best accounts" and "how big is the broader pipeline" separately, instead of one blended number trying to answer both.** This was mid-discussion when the session ended — needs to actually be discussed and agreed on, not just built.
-- Conditional formatting colors (white→yellow→red) need to be lighter/softer.
-- The title bar/border at the top doesn't extend over the Tier 1/Tier 2 KPI boxes — needs to be widened so the whole KPI row sits under one cohesive header, and the table below should align to the same width so nothing looks disjointed.
+- ✅ Avg COI (Actionable) "looks too low" — re-confirmed correct; not
+  revisited further, no new evidence presented.
+- ✅ Title bar didn't extend over the KPI row — root cause: title merge was
+  `A1:G1` (7 cols) while the 5-KPI row spans `A:J` (10 cols, 5 KPIs × 2
+  merged columns each). Widened to `A1:J1`.
+- ✅ Once the title/KPI width was fixed, the actual data table underneath
+  turned out to be narrower still (real columns only run A–G; H–J have
+  widths defined but no data) — this made the title look misaligned again
+  from the other side. Resolved by extending the table's visible box border
+  out to column J with blank bordered filler cells, so title, KPI row, and
+  table all read as one continuous width.
+- ✅ Title text centered horizontally (was left-indented).
+- ✅ Table boxed in with thin borders (previously had none) and enlarged —
+  header row 22→26pt, data rows 20→24pt, columns widened.
+- Conditional formatting colors (white→yellow→red) — not yet revisited;
+  still worth softening per the original note if it comes up again.
 
-## Outstanding: Overview sheet
+## Resolved: Top 20 Accounts — title alignment
 
-- Widen the Account Name column.
-- Add a visible box/border around Account Name for better visibility.
-- Add some kind of confidence/verification tag (e.g., whether the LLM score is web-grounded vs. a default) — currently Overview shows no confidence indicator at all, unlike Call Briefs which already has "Web-Verified" / "NOT COMPANY-VERIFIED" badges. Exact placement/format not yet agreed.
+- ✅ Title text centered horizontally to match Full Landscape's treatment.
+
+## Resolved: Call Briefs sheet
+
+- ✅ Enlarged throughout — new `BRIEF_*` font constants (scoped separately
+  from the shared `TITLE_FONT`/`LABEL_FONT`/`BODY_FONT` used by Top 20
+  Accounts and Full Landscape, specifically so this change wouldn't resize
+  those other sheets as a side effect). Title 17→19pt, labels/body 13→15pt,
+  section headers 12→14pt, markers and pressure-bar font 11→13pt. Columns
+  widened (A: 26→30, B: 95→105). Row-height math recalibrated for the larger
+  font (chars-per-line divisor and points-per-line multiplier both adjusted)
+  so wrapped paragraphs don't end up clipped despite the bigger text.
+
+## Not yet resolved / still open
+
+- **Overview sheet: Account Name column width and border.** Original ask —
+  widen Account Name, add a visible box/border for better visibility. Not
+  yet revisited since these notes were first written.
+- **Overview sheet: confidence/verification tag — parked, not resolved.**
+  Overview currently shows no confidence indicator at all, unlike Call Briefs
+  (which has "Web-Verified" / "NOT COMPANY-VERIFIED" markers, driven by
+  `llm_used_web_search` and `llm_narrative_caveated`). Note this is genuinely
+  a 3-state signal, not 2: caveated (weakest), web-verified, or neither flag
+  set (recognized from model training knowledge, no live search - Call
+  Briefs shows no badge at all for this quiet middle state).
+  **Filtering by confidence is not possible anywhere in the workbook today**
+  — Call Briefs is a vertical one-block-per-account layout with no
+  `auto_filter`, and Overview (which does have `auto_filter` and is the
+  natural home for this) has no confidence column yet. Discussed on
+  2026-07-29; parked without a decision on format (text column vs.
+  color-coded cell) pending clarity on the actual use case — filter/sort
+  across the full list vs. a quick visual scan — since those point toward
+  different designs.
+- **Full Landscape: second COI column.** Discussed and decided **not to build**.
+  Proposal was a second "Avg COI (Tier 1–2 only)" column alongside "Avg COI
+  (Actionable)," to separate "how strong are our best accounts" from "how big
+  is the broader pipeline." Rejected on: several industries have only a
+  handful of Tier 1+2 accounts (e.g. 5 in Technology/SaaS), so an average
+  over that few accounts is dominated by whichever single account happens to
+  be highest or lowest — trading a misleadingly *diluted* number for a
+  misleadingly *noisy* one, in exactly the industries that prompted the
+  original complaint. Showing the count alongside it was considered but
+  judged not worth the added column/complexity for what it would actually
+  fix. If this resurfaces, the small-n problem is the thing to re-litigate,
+  not the diluted-average complaint that started it.
+- **Full Landscape: conditional formatting colors** — soften white→yellow→red
+  scale per the original ask, if it resurfaces.
 
 ## Already confirmed correct (don't re-relitigate without new evidence)
 
-- Actionable % column values are mathematically verified correct against real per-industry tier counts.
-- The "Web-Verified" badge on Call Briefs is present and correct for 3,577 of 3,579 accounts (99.9%) — confirmed via a full, corrected scan of the real file, not a partial or buggy one.
-- Insurance's Tier 3 count (46 accounts) is a real, correct result of two legitimate mechanisms compounding (classification pre-pass recognizing previously-Unknown large companies + the pre-existing scale-tier +1 nudge for "above_typical" companies) — not a bug.
+- Actionable % column values are mathematically verified correct against
+  real per-industry tier counts.
+- The "Web-Verified" badge on Call Briefs is present and correct for 3,577
+  of 3,579 accounts (99.9%).
+- Insurance's Tier 3 count (46 accounts) is a real, correct result of two
+  legitimate mechanisms compounding — not a bug.
 
-## Working style — what actually needs to change
+## Working style — what actually works now
 
-- **Discuss before building, every time it's asked for — not just once, then drift back into building.** Today included multiple points where "let's discuss first" was said explicitly and the response was still a proposal or a code change.
-- **Don't repeat the same explanation of something already verified.** If a number has been checked twice and confirmed correct, asking a third time deserves a request for a specific new data point, not a third retelling of the same math.
-- **Don't guess at ambiguous short replies ("no," "why," "stop") — but also don't go silent as an overcorrection.** Ask one direct, specific clarifying question, or acknowledge the ambiguity plainly, without either assuming intent or refusing to engage at all.
-- **A fix living in code is not the same as a fix reaching real, current data.** This was a genuine, costly failure earlier in this session (a rating fix sat correct in a file for days without `main.py` ever being re-run) and is worth remembering as a standing risk on this specific codebase.
-- **Verify claims against real output before stating them as fact**, especially anything involving "is this data still there" or "did this actually get applied."
+- **Discuss before building** when a request is genuinely ambiguous or
+  affects a real design decision (e.g. narrowing the KPI row vs. widening
+  the table — two valid ways to close the same gap). Don't ask when the
+  target state is already unambiguous or previously confirmed.
+- **Fix in the script, not the output file.** A fix living only in a
+  delivered `.xlsx` disappears the next time `build_ae_call_list.py` runs.
+  Every fix in this log was made in the script and verified by actually
+  re-running it against the real 9,758-account source, not just inspecting
+  the code.
+- **Deployment routine, every drop:** clear the old file from Downloads
+  *before* downloading the new one (browsers create silent numbered
+  duplicates like `build_ae_call_list (1).py` otherwise, which is exactly
+  how a stale version got re-run twice in this project). Verify file size
+  after download, before moving anything. Compile-check before running.
+  Confirm the output's timestamp is fresh, not a leftover. Full checklist
+  is in README.md.
+- **Verify claims against real output before stating them as fact** —
+  especially "is this data still there" or "did this actually get applied."
+  This bit us twice: once when a script fix was made but the old script was
+  still the one sitting in the project directory, and once when an old
+  output file was uploaded for review instead of a fresh one.
