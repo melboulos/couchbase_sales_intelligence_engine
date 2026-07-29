@@ -24,7 +24,7 @@ def checkpoint(msg):
     print(f">>> CHECKPOINT: {msg}", flush=True)
 
 
-INPUT_FILE = "output/report1784905185024_Scored_FINAL.xlsx"
+INPUT_FILE = "output/enterprise_east_Scored_FINAL.xlsx"
 OUTPUT_FILE = "output/AE_Call_List.xlsx"
 # Real, licensed Couchbase brand banner (768x192, 4:1) - not
 # generated or reconstructed here. If this file isn't present, the

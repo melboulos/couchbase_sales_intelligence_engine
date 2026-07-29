@@ -2,6 +2,22 @@
 # RERUN ALL QUALIFIED ACCOUNTS WITH WEB SEARCH GROUNDING
 # Couchbase Sales Intelligence Engine
 #
+# >>> SKIP THIS SCRIPT FOR ANY BRAND-NEW ACCOUNT LIST. <<<
+# Confirmed 2026-07-29 on the Enterprise_East run: main.py's own LLM
+# pass already performs web search grounding automatically whenever
+# SERPER_API_KEY is configured in your environment - which it now
+# always is, going forward. Running this script afterward re-sends
+# the exact same accounts through the LLM a second time and produces
+# byte-identical output (confirmed: identical token counts, identical
+# llm_used_web_search values, identical cost) - a fully redundant
+# spend, not a bug, just wasted money (~$1.42 on that run).
+#
+# This script exists ONLY for reprocessing a batch that was validated
+# BEFORE Serper existed in this codebase (the original historical
+# 3,523-account run it was built for). If you're not in that specific
+# situation, main.py's own output is already the final, grounded file -
+# skip straight to build_ae_call_list.py.
+#
 # Purpose:
 #
 # All 3,523 currently-qualified accounts already show
@@ -39,9 +55,9 @@ import pandas as pd
 from pipeline.llm_validation_pipeline import validate_accounts
 from modules.deterministic_gate import deterministic_gate
 
-SCORED_FILE = "output/report1784905185024_Scored_FINAL.xlsx"
+SCORED_FILE = "output/enterprise_east_Scored.xlsx"
 CHECKPOINT_FILE = "output/llm_validation_results.xlsx"
-FINAL_OUTPUT_FILE = "output/report1784905185024_Scored_RESEARCHED.xlsx"
+FINAL_OUTPUT_FILE = "output/enterprise_east_Scored_FINAL.xlsx"
 
 TEXT_FIELDS_TO_SANITIZE = [
     "workload_profile", "business_model", "database_signal",

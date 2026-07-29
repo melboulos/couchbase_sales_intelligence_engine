@@ -224,6 +224,35 @@
 - Insurance's Tier 3 count (46 accounts) is a real, correct result of two
   legitimate mechanisms compounding — not a bug.
 
+## Real-cost lesson: rerun_qualified_with_search.py is now redundant for
+## brand-new runs (confirmed 2026-07-29, Enterprise_East run)
+
+- `rerun_qualified_with_search.py` was built to add web search grounding to
+  accounts that were validated **before Serper existed** in this codebase.
+  For any brand-new account list processed **now**, `main.py`'s own first
+  LLM pass already performs web search grounding automatically, since
+  `SERPER_API_KEY` is configured in the environment permanently, not just
+  for that one historical rerun.
+- Confirmed directly on the Enterprise_East run (485 qualified accounts):
+  running `rerun_qualified_with_search.py` afterward produced a
+  byte-identical result to `main.py`'s own output - same token counts to
+  the exact penny, same `llm_used_web_search` distribution (459 true / 26
+  false, matching the README's documented ~6% no-location skip rate),
+  confirmed by comparing `enterprise_east_Scored.xlsx` (before) against
+  `enterprise_east_Scored_FINAL.xlsx` (after) directly. No new work was
+  done - the "reset to needs processing" step had nothing meaningful to
+  reset, since these accounts were never un-grounded in the first place.
+- **Real cost of this mistake**: ~$1.42 spent re-validating already-correct
+  data. Not data corruption, not lost work - just money that didn't need
+  to be spent.
+- **Going forward**: for any brand-new account list, skip
+  `rerun_qualified_with_search.py` entirely - go straight from `main.py`
+  to `build_ae_call_list.py`. Only use the rerun script if genuinely
+  reprocessing a batch known to predate Serper's introduction. Warning
+  added directly to the script's own docstring so this is visible at the
+  point someone would actually consider running it, not just documented
+  here.
+
 ## Working style — what actually works now
 
 - **Discuss before building** when a request is genuinely ambiguous or

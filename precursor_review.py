@@ -37,7 +37,7 @@ from modules.opportunity_explainer import generate_opportunity_explanation
 # CONFIG - EDIT THIS
 # =====================================================
 
-INPUT_FILE = "input/report1784905185024.xls"   # <-- change to your actual file path
+INPUT_FILE = "input/Enterprise_East_Account_List.xlsx"   # <-- change to your actual file path
 OUTPUT_FILE = "output/precursor_review.xlsx"
 
 # Average total tokens per LLM call, measured from real
