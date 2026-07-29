@@ -1,0 +1,72 @@
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#2F5496', 'primaryTextColor': '#fff', 'primaryBorderColor': '#1F3864', 'lineColor': '#595959', 'fontFamily': 'monospace'}}}%%
+
+flowchart TD
+
+    START(["main.py<br/>INPUT_FILE → OUTPUT_FILE"])
+
+    subgraph ENRICH["Deterministic enrichment (pipeline/*.py → modules/*.py)"]
+        direction TB
+        LOAD["pipeline/loader.py<br/><i>load_accounts()</i><br/>handles fake-HTML .xls quirk"]
+        NORM["enrichment_pipeline.py → company_normalizer.py<br/><i>normalize_account_name()</i>"]
+        IND["enrichment_pipeline.py → industry_classifier.py<br/><i>classify_industry()</i> — keyword fallback"]
+        COMP["enrichment_pipeline.py → company_intelligence.py<br/><i>analyze_company()</i> — data/company_patterns.json<br/>industry override: SAFE (only if Unknown)"]
+        TECH["technology_pipeline.py → technology_enrichment.py<br/><i>analyze_technology()</i> — data/technology_patterns.json"]
+        ACCI["account_pipeline.py → account_intelligence.py<br/><i>analyze_account_intelligence()</i>"]
+        ACCE["account_enrichment_pipeline.py → account_enrichment.py<br/><i>enrich_account()</i>"]
+        ARCH["company_archetype_pipeline.py → company_archetype.py<br/><i>classify_company_archetype()</i><br/>⚠ OVERWRITES company_intelligence's value, NO guard - confirmed bug"]
+        SCORE["scoring_pipeline.py → scoring_engine.py<br/><i>calculate_coi()</i><br/>40+30+15+10+5=100 · Tier1≥80 Tier2≥60 Tier3≥40"]
+
+        LOAD --> NORM --> IND --> COMP --> TECH --> ACCI --> ACCE --> ARCH --> SCORE
+    end
+
+    subgraph GATEPATH["No pipeline/ wrapper - main.py calls these directly"]
+        direction TB
+        EXPL["modules/opportunity_explainer.py<br/><i>generate_opportunity_explanation()</i>"]
+        GATE["modules/deterministic_gate.py<br/><i>deterministic_gate()</i><br/>Tier4 → hard SKIP<br/>else: workload_evidence AND score≥40 (LLM_THRESHOLD) → LLM"]
+        EXPL --> GATE
+    end
+
+    DECISION{"run_llm?"}
+
+    SKIP(["SKIP — no LLM cost<br/>llm_validation=True, stage=SKIP"])
+
+    subgraph LLMGEN["LLM Intelligence Generation - pipeline/llm_validation_pipeline.py → sales_intelligence_pipeline.py::validate_account()"]
+        direction TB
+        REGATE["deterministic_gate() again, per-row<br/>(redundant but safe - pure/stateless)"]
+        SEARCH["modules/web_search_client.py<br/><i>search_company()</i> · Serper.dev<br/>only if state/province known"]
+        PROMPT["modules/llm_prompt_builder.py<br/><i>build_intelligence_prompt()</i><br/>bans database/distributed/Couchbase in specific_constraint<br/>independent 40/30/30 rubric, blind to COI/Tier"]
+        CALL["modules/llm_client.py<br/><i>call_llm()</i> · boto3 Bedrock invoke_model<br/>meta.llama3-70b-instruct-v1:0"]
+        VALIDATE["validate_llm_output() (same file)<br/>conservative ceilings · ungrounded-score ceilings<br/>magnitude floors/ceilings · defunct detection<br/>prompt-leakage · hallucination detection"]
+
+        REGATE --> SEARCH --> PROMPT --> CALL --> VALIDATE
+    end
+
+    MERGE["Merge back on Account Name<br/>.drop_duplicates(keep='first') first - prevents row-count inflation<br/>(real prior bug: 9758 in → 9760 out)"]
+
+    EXPORT["pipeline/intelligence_export_pipeline.py<br/><i>export_account_intelligence()</i> → account_intelligence.json (Streamlit)"]
+    EXCEL["build_ae_call_list.py → AE_Call_List.xlsx"]
+
+    START --> ENRICH
+    SCORE --> GATEPATH
+    GATE --> DECISION
+    DECISION -- No --> SKIP
+    DECISION -- Yes --> LLMGEN
+    VALIDATE --> MERGE
+    SKIP --> MERGE
+    MERGE --> EXPORT
+    MERGE --> EXCEL
+
+    PREPASS["classification_prepass.py (standalone, manual, per-run)<br/>filters industry==Unknown from an ALREADY-scored file<br/>filters housekeeping/deletion rows by name first<br/>verified classification → recomputes COI via SAME calculate_coi()<br/>writes a NEW file - does NOT touch company_patterns.json,<br/>nothing persists automatically to future runs"]
+    RERUN["rerun_qualified_with_search.py<br/>⚠ REDUNDANT for any brand-new run - main.py's own<br/>first pass already grounds via Serper (confirmed 2026-07-29)"]
+    REMOVED["6 dead modules REMOVED 2026-07-29 (commit dd21f5e):<br/>llm_json_parser · account_normalizer · web_enrichment<br/>sales_assistant · talk_track_generator · dashboard_generator<br/>confirmed via repo-wide grep, verified via identical<br/>precursor_review.py output before/after removal"]
+
+    PREPASS -.->|"human reviews output,<br/>then manually points<br/>build_ae_call_list.py at it"| EXCEL
+    MERGE -.->|"historical use only,<br/>predates Serper"| RERUN
+
+    classDef bug fill:#F2A9A5,stroke:#6b1a15,color:#3a0d0a
+    classDef noguard fill:#FFDDA1,stroke:#6b4a15,color:#4a3600
+    classDef dead fill:#e8e8e8,stroke:#999,color:#555,stroke-dasharray: 4 3
+
+    class ARCH,RERUN bug
+    class GATE noguard
+    class REMOVED dead
