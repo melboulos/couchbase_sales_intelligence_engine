@@ -907,3 +907,144 @@ today. This reframed the back half of the session: the narrative
 content (`engineering_implications`, `couchbase_point_of_view`,
 `discovery_progression`) is what the mission's five stated questions
 are actually about, and is where review effort shifted accordingly.
+
+---
+
+## July 28-29: a fix that never reached real data, and why the AE Call List rebuild came in three false starts before it was right
+
+### The finding: "Avg COI" looked wrong, and the real cause was much bigger than a display bug
+
+Reviewing a per-industry COI breakdown, the user noticed Insurance,
+Pharma & Medical Device, and two other industries showing an "Avg
+COI (Actionable)" of exactly 0. Confirmed this was mathematically
+correct (industries with zero Tier 1-3 accounts have nothing to
+average) rather than a calculation bug - but that correctness
+exposed a real, much bigger problem: 100% of Insurance (273
+accounts) and Pharma & Medical Device (207 accounts) were sitting in
+Tier 4, despite a base-rating fix supposedly having resolved exactly
+this issue on July 25.
+
+### Root cause, found by tracing the real dependency chain rather than re-checking the pattern file again
+
+Direct inspection confirmed the July 25 fix was genuinely still
+correct in `data/company_patterns.json`
+(`insurance_platform`/`pharma_device_platform` both showing the
+raised `database_intensity: 3, operational_complexity: 3`). The
+actual problem: **`main.py` - the only script that applies that
+file to compute real scores - was never re-run after the fix
+landed.** `rerun_qualified_with_search.py` (the "full clean run"
+used for the entire July 27-28 web search/RAG investigation) never
+recomputes deterministic scoring at all - confirmed by grep, zero
+matches for `calculate_coi`/`apply_workload_profile`/
+`analyze_company` anywhere in that file. It only re-does the LLM
+layer on top of whatever deterministic values already existed in its
+input file. This meant every fact-vs-score review, every random
+sample, every narrative-quality investigation across two full days
+of this session was built on a foundation that had never actually
+received the insurance/pharma fix, and - confirmed moments later -
+neither had the three keyword-collision fixes from earlier the same
+day (`api`/"Capital", `power`/"Empower", `card`/"Cardiology"). KPS
+Capital Partners, LP was still tagged `Technology / SaaS` in real
+output hours after that fix was believed complete.
+
+### A second, distinct failure found in the same investigation: the verification tooling had a scoped blind spot
+
+`verify_all_fixes.py` (built earlier in the session) reported 21/21
+checks passing throughout this entire period - correctly, since it
+only ever checked the LLM/scoring-pipeline files
+(`sales_intelligence_pipeline.py`, `llm_prompt_builder.py`,
+`web_search_client.py`). It never checked
+`modules/company_intelligence.py`, `modules/scoring_engine.py`, or
+the pattern file itself - exactly where the actual problem lived.
+A passing verification script gave real, unearned confidence to
+proceed with expensive, multi-hour work. Built
+`verify_deterministic_layer.py` to close this specific gap: checks
+the pattern file's real values, the keyword exclusions with actual
+behavioral tests (not just "does the dict entry exist"), the scoring
+engine's real read path, and `main.py`'s actual dependency wiring.
+Deliberately tested against a known-good state AND a deliberately-
+broken state before trusting it, per the same discipline used for
+the exclusion-list fixes earlier in the session.
+
+### The real, standing lesson, stated plainly rather than softened
+
+Every individual piece of work this session was tested rigorously in
+isolation - synthetic data, regression checks, real font-metrics
+math instead of eyeballing renders. None of that caught this,
+because isolation-testing a fix and confirming it reaches the real,
+current deliverable are different claims. The user's own framing,
+verbatim, is the accurate one: "end to end means end to end." A
+fix living correctly in a file is not the same as a fix having been
+applied to what a person actually opens. This is now the standing
+verification discipline for this codebase: confirm a fix on disk,
+confirm it's wired into the code that consumes it, AND confirm it
+shows up in a freshly-regenerated real output file - three separate
+checks, not one standing in for the others.
+
+### The actual sequence required to get corrected data all the way through, confirmed step by step
+
+1. Fixed `data/company_patterns.json` for real this time - confirmed
+   via direct file read on the user's own machine, not assumed from
+   a prior session's memory.
+2. Re-ran `main.py` fresh. Confirmed on real output: Insurance's 103
+   accounts uniformly show the corrected `database_intensity: 3`;
+   KPS Capital Partners now shows `workload_profile: nan` (the
+   collision-caused false match is gone, with the practical effect
+   of excluding it from scoring entirely - the same outcome as an
+   explicit exclusion rule, achieved by removing the false positive
+   instead).
+3. Investigated a further, more precise finding together: 134 of 136
+   Insurance/Pharma accounts converged on COI 39 - one point below
+   the Tier 3 cutoff of 40 - because `database_opportunity_points`
+   and `realtime_points` are flat, industry-wide constants once the
+   base rating is shared. Traced the exact mechanism: with Insurance,
+   Pharma, and Utilities all sharing `(3, 3, 2)`, all three
+   industries produce the identical plateau for any account lacking
+   an extra differentiating signal - confirmed 10 Utilities accounts
+   independently sitting at the exact same 39. This is the same root
+   shape as the LLM-side "thin fact defaults upward" pattern found
+   earlier in the session, showing up mechanically in the
+   deterministic engine instead.
+4. Deliberate, scoped decision: gave Pharma & Medical Device its own
+   distinct rating (`realtime_requirement: 3`, up from the shared
+   `2`), leaving Insurance and Utilities genuinely untouched -
+   judged Pharma & Medical Device (manufacturing operations, supply
+   chain, regulatory data workloads) a stronger real Couchbase fit
+   than Insurance or Utilities. Verified the real point swing (+3,
+   moving the 39 plateau to 42) against the actual `calculate_coi()`
+   function, not just hand arithmetic, before applying it.
+5. Re-ran `main.py` again with the pharma-specific fix. Confirmed on
+   real data: 30 of 33 Pharma accounts moved from Tier 4 to Tier 3;
+   Insurance's 103 accounts stayed at the same distribution as
+   before, confirming zero bleed into the industry left alone.
+6. Re-ran `classification_prepass.py` (7,727 candidates, 3,483
+   recovered from Unknown, real cost $3.59) - required because it
+   also only runs on-demand, not automatically, and the newly-
+   corrected base ratings needed to reach any account classified into
+   `insurance_platform`/`pharma_device_platform` through this path
+   too.
+7. Re-ran `run_new_llm_candidates.py` against the newly-classified
+   accounts (3,599 processed, 99.4% validated - a real, confirmed
+   improvement over the 94.8% rate from before the
+   `distributed_solution` fallback fix earlier in the session).
+   Confirmed web search grounding was already applied within this
+   same run (3,577 of 3,579 accounts) rather than assuming
+   `rerun_qualified_with_search.py` needed to run again separately -
+   checked directly rather than run an unnecessary multi-hour step.
+8. Rebuilt `AE_Call_List.xlsx` from the genuinely current, fully-
+   verified file - 3,579 qualified accounts, 15 industries - the
+   first version of the deliverable this session actually built from
+   a chain verified at every handoff, not assumed correct at the end.
+
+### What this cost, stated honestly
+
+A full day of work reviewing narrative quality, running random
+samples, and investigating LLM-side fixes had to be understood as
+built on a stale deterministic foundation before any of it could be
+trusted as reflecting the actual, current codebase. The concrete
+fix for the underlying process gap - an orchestration script that
+runs the cheap stages automatically and only re-processes changed
+accounts through the expensive LLM layer - is recorded in the
+README roadmap rather than built immediately, given the immediate
+priority was getting today's real data corrected rather than
+building new tooling first.

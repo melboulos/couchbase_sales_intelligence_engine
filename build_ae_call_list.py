@@ -20,7 +20,7 @@ def checkpoint(msg):
     print(f">>> CHECKPOINT: {msg}", flush=True)
 
 
-INPUT_FILE = "output/report1784905185024_Scored_RESEARCHED.xlsx"
+INPUT_FILE = "output/report1784905185024_Scored_FINAL.xlsx"
 OUTPUT_FILE = "output/AE_Call_List.xlsx"
 
 
@@ -101,28 +101,52 @@ industry_summary = (
     .groupby("industry")
     .agg(
         total_accounts=("Account Name", "count"),
-        avg_coi=("overall_coi", "mean"),
         tier_1=("priority_tier", lambda s: (s == "Tier 1 Strategic").sum()),
         tier_2=("priority_tier", lambda s: (s == "Tier 2 Strong Target").sum()),
-        tier_3=("priority_tier", lambda s: (s == "Tier 3 Nurture").sum()),
-        tier_4=("priority_tier", lambda s: (s == "Tier 4 Monitor").sum())
+        tier_3=("priority_tier", lambda s: (s == "Tier 3 Nurture").sum())
     )
     .reset_index()
 )
 
+# Averaging COI across ALL accounts (including Tier 4, usually the
+# large majority) produced a heavily diluted, confusing number - an
+# industry with 950 Tier 4 accounts and 50 strong Tier 1-3 accounts
+# would show a low blended average that hides the real opportunity
+# quality. Computed separately here, over ONLY the actionable
+# (Tier 1-3) accounts per industry - the same population as the call
+# list itself - so this reflects "how strong are the accounts we'd
+# actually call" rather than a number diluted by accounts nobody was
+# ever going to call anyway.
+actionable_avg_coi = (
+    call_list
+    .groupby("industry")["overall_coi"]
+    .mean()
+    .round(1)
+    .reset_index()
+    .rename(columns={"overall_coi": "avg_coi"})
+)
+industry_summary = industry_summary.merge(actionable_avg_coi, on="industry", how="left")
+industry_summary["avg_coi"] = industry_summary["avg_coi"].fillna(0)
+# merge() appends the new column at the end - explicitly restore its
+# intended position (right after total_accounts, before the tier
+# columns), since the conditional color formatting below is
+# hardcoded to column C and would silently format the wrong column
+# otherwise.
+industry_summary = industry_summary[
+    ["industry", "total_accounts", "avg_coi", "tier_1", "tier_2", "tier_3"]
+]
+
 checkpoint("industry_summary computed")
 
-industry_summary["avg_coi"] = industry_summary["avg_coi"].round(1)
 industry_summary = industry_summary.sort_values("tier_1", ascending=False).reset_index(drop=True)
 industry_summary = industry_summary.head(15)
 industry_summary = industry_summary.rename(columns={
     "industry": "Industry",
     "total_accounts": "Total Accounts",
-    "avg_coi": "Avg COI",
+    "avg_coi": "Avg COI (Actionable)",
     "tier_1": "Tier 1",
     "tier_2": "Tier 2",
-    "tier_3": "Tier 3",
-    "tier_4": "Tier 4"
+    "tier_3": "Tier 3"
 })
 
 checkpoint("industry_summary formatted, about to write initial xlsx")
@@ -154,7 +178,7 @@ total_tier2 = int((accounts["priority_tier"] == "Tier 2 Strong Target").sum())
 
 kpis = [
     ("Total Accounts Scored", total_scored),
-    ("Qualified for AE Call List", total_qualified),
+    ("Actionable Accounts (Tier 1\u20133)", total_qualified),
     ("Tier 1 Strategic", total_tier1),
     ("Tier 2 Strong Target", total_tier2)
 ]
@@ -185,7 +209,7 @@ for col_idx in range(1, n_cols + 1):
     cell.alignment = CENTER
 ws_summary.row_dimensions[header_row].height = 22
 
-summary_widths = {"A": 28, "B": 16, "C": 13, "D": 11, "E": 11, "F": 11, "G": 11}
+summary_widths = {"A": 28, "B": 16, "C": 29, "D": 18, "E": 11, "F": 11, "G": 11}
 for col, width in summary_widths.items():
     ws_summary.column_dimensions[col].width = width
 
@@ -212,7 +236,7 @@ if last_data_row > first_data_row:
             end_type="max", end_color="C00000"
         )
     )
-    for col_letter in ["D", "E", "F", "G"]:
+    for col_letter in ["D", "E", "F"]:
         cell_range = f"{col_letter}{first_data_row}:{col_letter}{last_data_row}"
         ws_summary.conditional_formatting.add(
             cell_range,
@@ -301,15 +325,84 @@ ws_briefs = wb.create_sheet("Call Briefs")
 ws_briefs.column_dimensions["A"].width = 26
 ws_briefs.column_dimensions["B"].width = 95
 
+def make_bar(value, max_value, width=10):
+    """
+    Renders a unicode block bar honestly proportional to a REAL
+    score value out of its real, documented max (see
+    modules/scoring_engine.py for the actual caps: workload=40,
+    database=30, realtime=15, technical=10, company=5). No
+    fabricated dimensions - only components that actually exist in
+    the deterministic scoring engine.
+    """
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        value = 0
+    if max_value <= 0:
+        filled = 0
+    else:
+        filled = round((value / max_value) * width)
+    filled = max(0, min(width, filled))
+    return "\u2588" * filled + "\u2591" * (width - filled)
+
+
+def build_opportunity_pressure_bars(row):
+    components = [
+        ("Workload Fit", row.get("workload_fit_points", 0), 40),
+        ("Database Opportunity", row.get("database_opportunity_points", 0), 30),
+        ("Real-Time Need", row.get("realtime_points", 0), 15),
+        ("Technical Environment", row.get("technical_environment_points", 0), 10),
+        ("Company Scale", row.get("company_context_points", 0), 5),
+    ]
+    lines = [f"{name:<22} {make_bar(value, max_val)}" for name, value, max_val in components]
+    return "\n".join(lines)
+
+
+def build_discovery_checklist(row):
+    parsed = parse_field(row.get("discovery_progression", ""))
+    if not isinstance(parsed, list):
+        return "(none noted)"
+    lines = []
+    for phase in parsed:
+        if isinstance(phase, dict):
+            obj = phase.get("objective", "")
+            if obj:
+                lines.append(f"\u2610 {obj}")
+    return "\n".join(lines) if lines else "(none noted)"
+
+
+def build_research_confidence(row):
+    if row.get("llm_narrative_caveated") in (True, 1, 1.0):
+        return "\u26A0 Not company-verified - built on an assigned category, not confirmed company knowledge."
+    if row.get("llm_used_web_search") in (True, 1, 1.0):
+        return "\U0001F50D Web-verified - grounded in a real, live search result."
+    return "Verified from model recognition (no live search performed for this account)."
+
+
+CANVAS_FIELD_ORDER = [
+    ("\U0001F3AF Why This Account", lambda r: (flatten_bullet_list(r.get("engineering_implications", "")).split("\n")[0]
+                                                 if r.get("engineering_implications") else "(no engineering implications noted)")),
+    ("\U0001F4BC Business Context", lambda r: (
+        f"Industry: {r.get('industry','Unknown')}  |  "
+        f"Business Model: {r.get('business_model','Unknown')}  |  "
+        f"Priority: {r.get('priority_tier','Unknown')}"
+    )),
+    ("\u2699\ufe0f Likely Workload", lambda r: str(r.get("workload_profile", "Unknown"))),
+    ("\U0001F525 Engineering Pressures", build_opportunity_pressure_bars),
+    ("\u2753 Discovery Objectives", build_discovery_checklist),
+    ("\u2705 Research Confidence", build_research_confidence),
+]
+
+
 FIELD_ORDER = [
     ("Account Owner", lambda r: r.get("Account Owner", "")),
     ("Industry", lambda r: r.get("industry", "")),
     ("Business Model", lambda r: r.get("business_model", "")),
     ("Workload Profile", lambda r: r.get("workload_profile", "")),
-    ("Engineering Implications", lambda r: flatten_bullet_list(r.get("engineering_implications", ""))),
-    ("Couchbase Point of View", lambda r: r.get("couchbase_point_of_view", "") or "(none noted)"),
-    ("Technical Risks to Validate", lambda r: flatten_bullet_list(r.get("technical_risks_to_validate", ""))),
-    ("Discovery Questions", lambda r: flatten_discovery_progression(r.get("discovery_progression", ""))),
+    ("\u2699\ufe0f Engineering Implications", lambda r: flatten_bullet_list(r.get("engineering_implications", ""))),
+    ("\U0001F4A1 Couchbase Point of View", lambda r: r.get("couchbase_point_of_view", "") or "(none noted)"),
+    ("\U0001F6A9 Technical Risks to Validate", lambda r: flatten_bullet_list(r.get("technical_risks_to_validate", ""))),
+    ("\u2753 Discovery Questions", lambda r: flatten_discovery_progression(r.get("discovery_progression", ""))),
     ("Missing Information", lambda r: flatten_bullet_list(r.get("missing_information", "")))
 ]
 
@@ -326,21 +419,26 @@ for i, row in call_list.iterrows():
     ws_briefs.merge_cells(start_row=title_row, start_column=1, end_row=title_row, end_column=2)
     title_cell = ws_briefs.cell(row=title_row, column=1)
     caveat_marker = (
-        "  \u26A0 NOT COMPANY-VERIFIED"
+        "\u26A0 NOT COMPANY-VERIFIED"
         if row.get("llm_narrative_caveated") in (True, 1, 1.0)
         else ""
     )
     web_search_marker = (
-        "  \U0001F50D Web-Verified"
+        "\U0001F50D Web-Verified"
         if row.get("llm_used_web_search") in (True, 1, 1.0)
+        else ""
+    )
+    llm_score_display = row.get("llm_total_score", "")
+    llm_score_default_marker = (
+        " (default)"
+        if row.get("llm_score_is_default") in (True, 1, 1.0)
         else ""
     )
     title_cell.value = (
         f"{row.get('Account Name', '')}   "
         f"\u2014  COI {row.get('overall_coi', '')}  "
+        f"\u2014  LLM Score {llm_score_display}{llm_score_default_marker}  "
         f"\u2014  {row.get('priority_tier', '')}"
-        f"{caveat_marker}"
-        f"{web_search_marker}"
     )
     title_cell.font = TITLE_FONT
     title_cell.fill = TITLE_FILL
@@ -349,12 +447,60 @@ for i, row in call_list.iterrows():
 
     current_row += 1
 
+    # Verification markers get their own row - moved out of the title
+    # after finding the combined title could overflow its cell width
+    # (confirmed via real font-metrics check: a title with the LLM
+    # score plus even one marker exceeded the available cell width
+    # in the common case, not just a rare worst-case combination).
+    markers = "   ".join(m for m in [caveat_marker, web_search_marker] if m)
+    if markers:
+        marker_cell = ws_briefs.cell(row=current_row, column=1)
+        ws_briefs.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=2)
+        marker_cell.value = markers
+        marker_cell.font = Font(name="Arial", size=11, italic=True, color="7F7F7F")
+        marker_cell.alignment = Alignment(vertical="center", indent=1)
+        ws_briefs.row_dimensions[current_row].height = 18
+        current_row += 1
+
     back_cell = ws_briefs.cell(row=current_row, column=1)
     back_cell.value = "\u2191 Back to Overview"
     back_cell.hyperlink = "#Overview!A1"
     back_cell.font = LINK_FONT
     back_cell.alignment = Alignment(vertical="center", indent=1)
     ws_briefs.row_dimensions[current_row].height = 18
+
+    current_row += 1
+
+    canvas_header_cell = ws_briefs.cell(row=current_row, column=1)
+    ws_briefs.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=2)
+    canvas_header_cell.value = "\U0001F4CB TECHNICAL OPPORTUNITY CANVAS"
+    canvas_header_cell.font = Font(name="Arial", bold=True, size=12, color="1F3864")
+    canvas_header_cell.fill = PatternFill(start_color="DCE6F1", end_color="DCE6F1", fill_type="solid")
+    canvas_header_cell.alignment = Alignment(vertical="center", indent=1)
+    ws_briefs.row_dimensions[current_row].height = 22
+    current_row += 1
+
+    for label, getter in CANVAS_FIELD_ORDER:
+        label_cell = ws_briefs.cell(row=current_row, column=1)
+        value_cell = ws_briefs.cell(row=current_row, column=2)
+
+        label_cell.value = label
+        label_cell.font = LABEL_FONT
+        label_cell.fill = PatternFill(start_color="F2F6FB", end_color="F2F6FB", fill_type="solid")
+        label_cell.alignment = Alignment(vertical="top", wrap_text=True)
+        label_cell.border = THIN_BORDER
+
+        value_cell.value = getter(row)
+        value_cell.font = Font(name="Courier New", size=11) if label.startswith("\U0001F525") else BODY_FONT
+        value_cell.fill = PatternFill(start_color="F2F6FB", end_color="F2F6FB", fill_type="solid")
+        value_cell.alignment = WRAP
+        value_cell.border = THIN_BORDER
+
+        text_len = len(str(value_cell.value))
+        line_estimate = max(1, text_len // 70 + str(value_cell.value).count("\n") + 1)
+        ws_briefs.row_dimensions[current_row].height = min(max(20, line_estimate * 18), 320)
+
+        current_row += 1
 
     current_row += 1
 

@@ -2,6 +2,22 @@
 
 A sales intelligence pipeline that scores Salesforce accounts for genuine Couchbase technical fit, then uses an LLM to generate account-specific discovery prep for qualifying accounts — helping AEs identify who to call, why, and what to ask.
 
+**Built for** Solution Engineers, Enterprise Account Executives, Sales Architects, and Technical Sales teams evaluating large Salesforce account portfolios.
+
+## Features
+
+- 🎯 **Deterministic opportunity scoring** — a transparent, rule-based Couchbase Opportunity Index (COI), no LLM cost for accounts that don't qualify
+- ⚙️ **Technical workload identification** — matches accounts against known workload profiles (payment platforms, IoT, real-time analytics, and more)
+- 🔍 **Web-grounded LLM seller intelligence** — real, retrieved facts (via Serper.dev) instead of relying on model memory alone
+- ❓ **Automated discovery questions** — a 4-phase, account-specific discovery progression for every qualifying account
+- 📋 **AE-ready Excel call briefs** — a polished, filterable call list built directly from the pipeline output
+- 📊 **Streamlit dashboard** — a live, interactive view of account intelligence (`app.py`)
+
+<p align="center">
+  <img src="docs/sample_overview_screenshot.jpg" alt="Sample AE Call List Overview sheet with illustrative example data" width="640">
+</p>
+<p align="center"><em>Illustrative sample output — example account names and data, not real customer accounts.</em></p>
+
 ## Mission
 
 The COI (Couchbase Opportunity Index) score is only a prioritization mechanism. The real goal is seller intelligence:
@@ -68,6 +84,29 @@ Deterministic Gate (modules/deterministic_gate.py)
                        v
      Excel export + Streamlit JSON export
 ```
+
+## Example workflow
+
+```
+Salesforce Export
+       ↓
+python main.py                    (score + classify + first LLM pass)
+       ↓
+python rerun_qualified_with_search.py   (full run with web search grounding)
+       ↓
+python build_ae_call_list.py      (build the AE-ready Excel call list)
+       ↓
+Sales rep prepares discovery call
+```
+
+## Roadmap
+
+- **A single orchestration script that runs the cheap deterministic stages (`main.py`, `classification_prepass.py`) automatically whenever pattern-file or classification code changes, and only sends *changed* accounts through the expensive LLM layer** - the concrete fix for the exact problem found July 28-29: a real rating fix sat correctly in code for days without ever reaching real data, because nothing tied the stages together or flagged that a re-run was needed.
+- CRM integration (write intelligence directly back to Salesforce)
+- Additional enrichment sources beyond Serper.dev
+- Better company recognition for smaller/regional accounts
+- Multi-model support (currently Llama 3 70B via Bedrock only)
+- Automated persona/stakeholder recommendations
 
 ## Setup
 
@@ -138,7 +177,8 @@ streamlit run app.py
 - **Account Name is not a unique key.** This dataset has confirmed genuine duplicate names for different accounts (e.g. two different "United Community Bank" entries with different CB Account Numbers). Anywhere a merge/lookup is keyed on Account Name, duplicate-named accounts will receive the same merged LLM result (whichever was processed first) rather than their own. A real fix would require joining on a unique account ID instead, if your export reliably includes one.
 - **`llm_specific_fact` passing validation doesn't mean it's true.** `validate_recognition_evidence()` only checks that the stated fact isn't generic industry-template language — it can't verify factual accuracy without an external lookup. Confirmed in production: BayMark Health Services (a real addiction-treatment provider) was described as "a healthcare technology company" — a fabricated but specific-sounding fact that passed validation. Web search grounding (above) reduces how often this happens, since the model has real text to draw from instead of guessing, but doesn't eliminate it — a search result can itself be misread or a company can still be conflated with a similarly-named one despite the location cross-check. Mitigated by `build_ae_call_list.py` never surfacing these fields to reps directly; `llm_used_web_search` and `llm_narrative_caveated` flags on the Call Brief title tell a rep at a glance whether an account's narrative is grounded in a real search result, unverified, or neither.
 - **The Couchbase point of view narrative resists full de-genericization.** `specific_constraint`/`distributed_solution` (split from a single free-text field specifically to code-check for product-name leakage) reliably avoid naming "database"/"distributed"/"Couchbase" now, and web search grounding measurably enriches the underlying facts — but the sentence *structure* itself ("[concurrency word] updates to [domain noun] during peak [domain] period(s)") still converges across genuinely unrelated accounts. Confirmed via direct testing across 11 real accounts spanning banking, healthcare, hospitality, and fintech. This appears to be a structural habit of the model rather than something further word-level prompt constraints can fix — see the July 27 design doc section for the full investigation before attempting another round of prompt changes here.
-- **Elephant-company overrides exist for a handful of individually-verified large accounts** (see `known_companies` in `data/company_patterns.json`) on top of the base per-vertical ratings, which are now uniform across verticals (insurance/pharma/utilities all match at `(3, 3, 2)` as of July 25) rather than the earlier flat-ceiling bug that kept 100% of Insurance and Pharma & Medical Device accounts stuck in Tier 4 regardless of scale.
+- **A code fix and a fix actually reaching real data are two different things — confirmed the hard way.** The insurance/pharma base-rating fix (raising `database_intensity`/`operational_complexity` from `2,2` to `3,3`, first made July 25) was correctly written into `data/company_patterns.json` the whole time — but `main.py` (the only script that actually *applies* that file to compute real scores) was never re-run afterward. Every later stage of the pipeline, including the July 27-28 web search/RAG work, was unknowingly built on deterministic scores computed with the *old* rating. The same gap affected the three keyword-collision fixes (`api`/"Capital", `power`/"Empower", `card`/"Cardiology") — all correctly written into code, none of it reaching real data until `main.py` was finally re-run on July 28. Confirmed directly: `KPS Capital Partners, LP` was still tagged `Technology / SaaS` in real output hours after the fix was "done." This is now a standing lesson for this codebase: any fix to `modules/company_intelligence.py`, `modules/scoring_engine.py`, or `data/company_patterns.json` requires a fresh `main.py` run before it's real, not just a code change - `verify_deterministic_layer.py` checks the code/data are correct, not that they've been applied to the actual scored file, and is a real, known blind spot until an orchestration script exists to close it (see Roadmap).
+- **Insurance, Pharma & Medical Device, and Utilities all shared the identical `(3, 3, 2)` rating as of July 25, producing a striking, confirmed side effect: 98.5% of a 136-account Insurance/Pharma sample converged on the exact same COI, mostly landing one point below the Tier 3 cutoff.** Investigated directly with the user on July 28-29: Pharma was deliberately separated out with its own `realtime_requirement: 3` (distinct from Insurance and Utilities' `2`), specifically chosen because Pharma & Medical Device workloads (manufacturing operations, supply chain, regulatory data) were judged a stronger real Couchbase fit than Insurance or Utilities. Confirmed on real data: 30 of 33 Pharma accounts moved from Tier 4 to Tier 3 as a direct, verified result; Insurance's 103 accounts were deliberately left untouched at the original rating. Elephant-company overrides for individually-verified large accounts still exist on top of these base ratings (see `known_companies` in `data/company_patterns.json`).
 - **The model can override or ignore given evidence with its own outside training knowledge, and no code check catches this.** Confirmed in production: Nikon Inc.'s fact explicitly states "51-200 employees," but the narrative describes "Nikon's large customer base" anyway, drawing on background knowledge of the famous parent brand rather than the stated fact about this specific US subsidiary. A milder version shows up whenever a well-known company (Epic Games, a professional sports team) has a thin given fact but a confident, detailed narrative anyway. Explicitly decided not to chase this with more code, alongside a related discovery-phase regression (a banned generic phase objective resurfacing in a near-identical reworded form) — both are semantic judgments ("is this from the given fact or from training knowledge") with no clean, deterministic signal to check, the same reasoning already applied to the pure-fabrication risk above. See the July 28 design doc section for the full review and the reasoning behind stopping here.
 
 ## Project structure
