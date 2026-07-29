@@ -7,6 +7,7 @@
 # =====================================================
 
 import sys
+import os
 import pandas as pd
 import ast
 from openpyxl import load_workbook
@@ -16,6 +17,7 @@ from openpyxl.formatting.rule import ColorScaleRule
 from openpyxl.chart import BarChart, PieChart, Reference
 from openpyxl.chart.text import RichText
 from openpyxl.drawing.text import CharacterProperties, Paragraph, ParagraphProperties
+from openpyxl.drawing.image import Image as XLImage
 
 
 def checkpoint(msg):
@@ -24,6 +26,12 @@ def checkpoint(msg):
 
 INPUT_FILE = "output/report1784905185024_Scored_FINAL.xlsx"
 OUTPUT_FILE = "output/AE_Call_List.xlsx"
+# Real, licensed Couchbase brand banner (768x192, 4:1) - not
+# generated or reconstructed here. If this file isn't present, the
+# splash banner row is simply left blank rather than failing the
+# whole build - see the image-insertion block in the Top 20 sheet
+# section for the fallback.
+LOGO_FILE = "assets/couchbase_banner.png"
 
 
 def parse_field(value):
@@ -83,7 +91,7 @@ print(f"Accounts with validated LLM intelligence: {len(call_list)}", flush=True)
 
 checkpoint("Filtered call_list")
 
-HEADER_FONT = Font(name="Arial", bold=True, color="FFFFFF", size=14)
+HEADER_FONT = Font(name="Arial", bold=True, color="FFFFFF", size=16)
 HEADER_FILL = PatternFill(start_color="2F5496", end_color="2F5496", fill_type="solid")
 TITLE_FONT = Font(name="Arial", bold=True, size=17, color="FFFFFF")
 TITLE_FILL = PatternFill(start_color="1F3864", end_color="1F3864", fill_type="solid")
@@ -114,6 +122,13 @@ BRIEF_LINK_FONT = Font(name="Arial", size=15, color="0563C1", underline="single"
 BRIEF_MARKER_FONT = Font(name="Arial", size=13, italic=True, color="7F7F7F")
 BRIEF_CANVAS_HEADER_FONT = Font(name="Arial", bold=True, size=14, color="1F3864")
 BRIEF_PRESSURE_BAR_FONT = Font(name="Courier New", size=13)
+
+# Overview-specific fonts, also kept separate from the shared
+# constants above for the same reason as the BRIEF_ fonts - HEADER_FONT
+# and LINK_FONT are also used on Full Landscape and Top 20 Accounts.
+OVERVIEW_HEADER_FONT = Font(name="Arial", bold=True, color="FFFFFF", size=16)
+OVERVIEW_BODY_FONT = Font(name="Arial", size=15)
+OVERVIEW_LINK_FONT = Font(name="Arial", size=15, color="0563C1", underline="single")
 
 checkpoint("Styles defined")
 
@@ -244,7 +259,7 @@ for col_idx in range(1, TABLE_BOX_COLS + 1):
     cell.fill = HEADER_FILL
     cell.alignment = CENTER
     cell.border = BOX_BORDER
-ws_summary.row_dimensions[header_row].height = 26
+ws_summary.row_dimensions[header_row].height = 28
 
 summary_widths = {"A": 32, "B": 17, "C": 30, "D": 19, "E": 12, "F": 12, "G": 12, "H": 14, "I": 14, "J": 13}
 for col, width in summary_widths.items():
@@ -271,8 +286,8 @@ if last_data_row > first_data_row:
         avg_coi_range,
         ColorScaleRule(
             start_type="min", start_color="FFFFFF",
-            mid_type="percentile", mid_value=50, mid_color="FFEB84",
-            end_type="max", end_color="C00000"
+            mid_type="percentile", mid_value=50, mid_color="FFF3B0",
+            end_type="max", end_color="F2A9A5"
         )
     )
     for col_letter in ["D", "E", "F", "G"]:
@@ -281,8 +296,8 @@ if last_data_row > first_data_row:
             cell_range,
             ColorScaleRule(
                 start_type="min", start_color="FFFFFF",
-                mid_type="percentile", mid_value=50, mid_color="FFEB84",
-                end_type="max", end_color="C00000"
+                mid_type="percentile", mid_value=50, mid_color="FFF3B0",
+                end_type="max", end_color="F2A9A5"
             )
         )
 
@@ -318,18 +333,29 @@ overview_headers = ["Account Name", "COI Score", "Priority Tier", "Industry", "B
 for col_idx, header in enumerate(overview_headers, start=1):
     cell = ws_overview.cell(row=1, column=col_idx)
     cell.value = header
-    cell.font = HEADER_FONT
+    cell.font = OVERVIEW_HEADER_FONT
     cell.fill = HEADER_FILL
     cell.alignment = Alignment(vertical="center")
-ws_overview.row_dimensions[1].height = 24
+ws_overview.row_dimensions[1].height = 27
 
 # Lets reps filter/sort by owner, tier, industry, or COI directly in
 # Excel instead of scrolling - dropdown arrows appear on every header.
 ws_overview.auto_filter.ref = f"A1:{get_column_letter(len(overview_headers))}1"
 
-overview_widths = {"A": 28, "B": 13, "C": 22, "D": 24, "E": 24, "F": 20}
+# Account Name widened from 28 to 34 based on real distribution (95th
+# percentile is 36 chars, median 17 - a handful of ~90-char government/
+# university names are genuine long-tail outliers, not the norm; those
+# wrap to a second line below rather than forcing the column absurdly
+# wide for everyone else). Other columns widened proportionally.
+overview_widths = {"A": 34, "B": 15, "C": 25, "D": 27, "E": 27, "F": 23}
 for col, width in overview_widths.items():
     ws_overview.column_dimensions[col].width = width
+
+# Account Name row height is computed from real name length, same
+# principle used everywhere else in this script - most names fit on
+# one line at this width, the rare long outlier wraps instead of
+# truncating or forcing every row taller than it needs to be.
+CHARS_PER_LINE_AT_OVERVIEW_A_WIDTH = 30
 
 # Priority tier -> fill color, for at-a-glance scanning without reading text
 TIER_FILLS = {
@@ -343,16 +369,16 @@ account_brief_rows = []
 
 for i, row in call_list.iterrows():
     excel_row = i + 2
-    ws_overview.row_dimensions[excel_row].height = 20
-    ws_overview.cell(row=excel_row, column=2, value=row.get("overall_coi", "")).font = BODY_FONT
+    ws_overview.row_dimensions[excel_row].height = 23
+    ws_overview.cell(row=excel_row, column=2, value=row.get("overall_coi", "")).font = OVERVIEW_BODY_FONT
     tier_cell = ws_overview.cell(row=excel_row, column=3, value=row.get("priority_tier", ""))
-    tier_cell.font = BODY_FONT
+    tier_cell.font = OVERVIEW_BODY_FONT
     tier_fill = TIER_FILLS.get(row.get("priority_tier", ""))
     if tier_fill:
         tier_cell.fill = tier_fill
-    ws_overview.cell(row=excel_row, column=4, value=row.get("industry", "")).font = BODY_FONT
-    ws_overview.cell(row=excel_row, column=5, value=row.get("business_model", "")).font = BODY_FONT
-    ws_overview.cell(row=excel_row, column=6, value=row.get("Account Owner", "")).font = BODY_FONT
+    ws_overview.cell(row=excel_row, column=4, value=row.get("industry", "")).font = OVERVIEW_BODY_FONT
+    ws_overview.cell(row=excel_row, column=5, value=row.get("business_model", "")).font = OVERVIEW_BODY_FONT
+    ws_overview.cell(row=excel_row, column=6, value=row.get("Account Owner", "")).font = OVERVIEW_BODY_FONT
     for col_idx in range(2, 6):
         ws_overview.cell(row=excel_row, column=col_idx).alignment = CENTER
 
@@ -577,7 +603,14 @@ for i in range(len(call_list)):
     name_cell = ws_overview.cell(row=row_num, column=1)
     name_cell.value = account_name
     name_cell.hyperlink = f"#'Call Briefs'!A{brief_row}"
-    name_cell.font = LINK_FONT
+    name_cell.font = OVERVIEW_LINK_FONT
+    name_cell.alignment = Alignment(wrap_text=True, vertical="center")
+    name_cell.border = BOX_BORDER
+
+    line_estimate = max(1, len(str(account_name)) // CHARS_PER_LINE_AT_OVERVIEW_A_WIDTH + 1)
+    needed_height = min(line_estimate * 21, 70)
+    if needed_height > ws_overview.row_dimensions[row_num].height:
+        ws_overview.row_dimensions[row_num].height = needed_height
 
 checkpoint("Hyperlinks written")
 
@@ -668,25 +701,52 @@ tier_counts = tier_counts.reindex(tier_order).fillna(0).astype(int)
 
 industry_opportunity = call_list.groupby("industry").size().sort_values(ascending=False).head(10)
 
-ws_top20 = wb.create_sheet("Top 20 Accounts", 0)
+ws_top20 = wb.create_sheet("Sales Intelligence Platform", 0)
 ws_top20.sheet_view.showGridLines = False
 
 ws_top20.column_dimensions["A"].width = 11
 ws_top20.column_dimensions["B"].width = 32
 ws_top20.column_dimensions["C"].width = 10
 ws_top20.column_dimensions["D"].width = 24
-ws_top20.column_dimensions["E"].width = 95
+ws_top20.column_dimensions["E"].width = 105
 ws_top20.column_dimensions["F"].width = 34
 
-ws_top20.merge_cells("A1:F1")
-top20_title = ws_top20["A1"]
-top20_title.value = "\U0001F3AF Top 20 Accounts to Call"
-top20_title.font = TITLE_FONT
+# Splash banner, three tiers:
+#   Row 1 - real Couchbase brand banner image (assets/couchbase_banner.png,
+#           4:1 aspect, sized to preserve that ratio rather than stretched
+#           to fill the full table width and getting distorted/blurry).
+#   Row 2 - project title
+#   Row 3 - sheet subtitle
+# table_header_row is the only thing that needed to change to make
+# room - everything below it (table_end_row, drivers_header_row,
+# chart anchors) is computed relative to it, not hardcoded.
+if os.path.exists(LOGO_FILE):
+    banner_img = XLImage(LOGO_FILE)
+    banner_img.width = 600
+    banner_img.height = 150  # preserves the source's real 4:1 ratio
+    ws_top20.add_image(banner_img, "A1")
+    checkpoint(f"Inserted real banner image from {LOGO_FILE}")
+else:
+    checkpoint(f"WARNING: {LOGO_FILE} not found - splash row left blank, not failing the build")
+ws_top20.row_dimensions[1].height = 114
+
+ws_top20.merge_cells("A2:F2")
+top20_title = ws_top20["A2"]
+top20_title.value = "Sales Intelligence Platform"
+top20_title.font = Font(name="Arial", bold=True, size=22, color="FFFFFF")
 top20_title.fill = TITLE_FILL
 top20_title.alignment = Alignment(horizontal="center", vertical="center")
-ws_top20.row_dimensions[1].height = 34
+ws_top20.row_dimensions[2].height = 34
 
-table_header_row = 3
+ws_top20.merge_cells("A3:F3")
+top20_subtitle = ws_top20["A3"]
+top20_subtitle.value = "\U0001F3AF Top 20 Accounts to Call"
+top20_subtitle.font = Font(name="Arial", bold=True, size=14, color="FFFFFF")
+top20_subtitle.fill = HEADER_FILL
+top20_subtitle.alignment = Alignment(horizontal="center", vertical="center")
+ws_top20.row_dimensions[3].height = 24
+
+table_header_row = 4
 headers = ["Rank", "Account", "COI", "Workload Profile", "Why Couchbase", "Recommended First Contact"]
 for col_idx, header in enumerate(headers, start=1):
     cell = ws_top20.cell(row=table_header_row, column=col_idx)
@@ -695,14 +755,14 @@ for col_idx, header in enumerate(headers, start=1):
     cell.fill = TITLE_FILL
     cell.alignment = Alignment(vertical="center", indent=1, wrap_text=True)
     cell.border = BOX_BORDER
-ws_top20.row_dimensions[table_header_row].height = 36
+ws_top20.row_dimensions[table_header_row].height = 40
 
 # E column is 95 units wide - roughly 90 characters per line at this
 # font size/width. Row height is computed from the REAL text length,
 # not a fixed guess - a fixed 32pt row was clipping longer sentences
 # even though the column itself was wide enough, since wrap_text
 # still needs enough row height to actually show every wrapped line.
-CHARS_PER_LINE_AT_E_WIDTH = 90
+CHARS_PER_LINE_AT_E_WIDTH = 100
 
 for i, (_, row) in enumerate(top_20.iterrows()):
     r = table_header_row + 1 + i
@@ -746,8 +806,8 @@ ws_top20.conditional_formatting.add(
     coi_range,
     ColorScaleRule(
         start_type="min", start_color="FFFFFF",
-        mid_type="percentile", mid_value=50, mid_color="FFEB84",
-        end_type="max", end_color="C00000"
+        mid_type="percentile", mid_value=50, mid_color="FFF3B0",
+        end_type="max", end_color="F2A9A5"
     )
 )
 
@@ -812,7 +872,7 @@ ws_top20.add_chart(industry_chart, f"C{bar_chart_anchor_row}")
 
 checkpoint("Top 20 Accounts sheet complete")
 
-wb.active = wb.sheetnames.index("Top 20 Accounts")
+wb.active = wb.sheetnames.index("Sales Intelligence Platform")
 
 checkpoint("About to save workbook — this may take a moment")
 

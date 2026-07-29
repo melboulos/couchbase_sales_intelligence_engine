@@ -55,7 +55,54 @@
   font (chars-per-line divisor and points-per-line multiplier both adjusted)
   so wrapped paragraphs don't end up clipped despite the bigger text.
 
-## Not yet resolved / still open
+## Resolved: Sales Intelligence Platform tab (formerly "Top 20 Accounts")
+
+- ✅ Renamed from "Top 20 Accounts" to "Sales Intelligence Platform" and set
+  as the first/active tab.
+- ✅ Real Couchbase brand banner (licensed asset, not generated/reconstructed
+  - see `assets/couchbase_banner.png` and `LOGO_FILE` in the script) added as
+  a proper splash row at the top, sized to preserve its real 4:1 ratio.
+  Falls back gracefully (prints a warning, doesn't fail the build) if the
+  asset file isn't present at build time.
+- ✅ Project title + sheet subtitle added below the banner; table shifted
+  down accordingly (everything below is computed relative to
+  `table_header_row`, so this didn't require separate row-math fixes).
+- ✅ Why Couchbase column widened 95→105; row-height chars-per-line math
+  recalibrated to match (90→100) so long entries don't end up
+  under-estimated for height.
+- ✅ Header font bumped 14→16pt to match Overview, on both this sheet and
+  Full Landscape's industry table header (same shared `HEADER_FONT`
+  constant covers both - no side effects elsewhere, confirmed only these
+  two usages exist). Row heights bumped to match (28pt / 40pt).
+
+## Resolved: conditional formatting colors (closes an item open since the
+## very start of this project)
+
+- ✅ Original ask was "white→yellow→red needs to be lighter/softer" for
+  Full Landscape - flagged in the first working session, never fixed until
+  now. Softened on **all three** color-scale rules that shared the old
+  palette: Full Landscape's Avg COI column, Full Landscape's
+  Actionable%/Tier1/Tier2/Tier3 columns, and the SIP/Top 20 sheet's COI
+  column. New palette: `FFFFFF` (white) → `FFF3B0` (pale yellow) →
+  `F2A9A5` (soft muted coral), replacing the old `FFFFFF` → `FFEB84`
+  (saturated yellow) → `C00000` (dark red). Confirmed liked as-is.
+
+## Resolved: Overview sheet
+
+- ✅ Account Name column widened 28→34 based on real data (95th percentile
+  36 chars, median 17 - a handful of ~90-char government/university names
+  are genuine long-tail outliers, not the norm). Wrap-text enabled with
+  real-length-based dynamic row height (same principle used elsewhere in
+  this script) so the rare long name wraps instead of truncating, capped
+  at 70pt so an outlier doesn't blow out the row.
+- ✅ Visible border added around Account Name.
+- ✅ All Overview columns widened proportionally, and font sizes bumped
+  (header 14→16pt, body/link 13/14→15pt) - via new Overview-specific font
+  constants (`OVERVIEW_HEADER_FONT`, `OVERVIEW_BODY_FONT`,
+  `OVERVIEW_LINK_FONT`), scoped separately so this didn't resize Full
+  Landscape or SIP/Top 20 as a side effect.
+
+
 
 - **Overview sheet: Account Name column width and border.** Original ask —
   widen Account Name, add a visible box/border for better visibility. Not
@@ -87,8 +134,6 @@
   judged not worth the added column/complexity for what it would actually
   fix. If this resurfaces, the small-n problem is the thing to re-litigate,
   not the diluted-average complaint that started it.
-- **Full Landscape: conditional formatting colors** — soften white→yellow→red
-  scale per the original ask, if it resurfaces.
 
 ## Already confirmed correct (don't re-relitigate without new evidence)
 
@@ -122,3 +167,8 @@
   This bit us twice: once when a script fix was made but the old script was
   still the one sitting in the project directory, and once when an old
   output file was uploaded for review instead of a fresh one.
+- **Prefer lighter, softer color palettes** for fills and conditional
+  formatting generally (confirmed 2026-07-29 on the COI color scales -
+  pale yellow/soft coral over saturated yellow/dark red). Default toward
+  this on any future fill-color or conditional-formatting work rather than
+  waiting to be asked each time.
