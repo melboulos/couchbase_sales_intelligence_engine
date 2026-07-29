@@ -1,50 +1,63 @@
-%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#2F5496', 'primaryTextColor': '#fff', 'primaryBorderColor': '#1F3864', 'lineColor': '#595959', 'fontFamily': 'monospace'}}}%%
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#2F5496', 'primaryTextColor': '#fff', 'primaryBorderColor': '#1F3864', 'lineColor': '#595959', 'fontFamily': 'monospace', 'fontSize': '13px'}, 'flowchart': {'curve': 'basis', 'nodeSpacing': 40, 'rankSpacing': 55}}}%%
 
 flowchart TD
 
-    START(["main.py<br/>INPUT_FILE → OUTPUT_FILE"])
+    START(["<b>main.py</b><br/>INPUT_FILE → OUTPUT_FILE<br/><i>the only script that runs the full live pipeline end to end</i>"])
 
-    subgraph ENRICH["Deterministic enrichment (pipeline/*.py → modules/*.py)"]
+    subgraph ENRICH["① Deterministic enrichment — pipeline/*.py → modules/*.py"]
         direction TB
-        LOAD["pipeline/loader.py<br/><i>load_accounts()</i><br/>handles fake-HTML .xls quirk"]
-        NORM["enrichment_pipeline.py → company_normalizer.py<br/><i>normalize_account_name()</i>"]
-        IND["enrichment_pipeline.py → industry_classifier.py<br/><i>classify_industry()</i> — keyword fallback"]
-        COMP["enrichment_pipeline.py → company_intelligence.py<br/><i>analyze_company()</i> — data/company_patterns.json<br/>industry override: SAFE (only if Unknown)"]
-        TECH["technology_pipeline.py → technology_enrichment.py<br/><i>analyze_technology()</i> — data/technology_patterns.json"]
-        ACCI["account_pipeline.py → account_intelligence.py<br/><i>analyze_account_intelligence()</i>"]
-        ACCE["account_enrichment_pipeline.py → account_enrichment.py<br/><i>enrich_account()</i>"]
-        ARCH["company_archetype_pipeline.py → company_archetype.py<br/><i>classify_company_archetype()</i><br/>⚠ OVERWRITES company_intelligence's value, NO guard - confirmed bug"]
-        SCORE["scoring_pipeline.py → scoring_engine.py<br/><i>calculate_coi()</i><br/>40+30+15+10+5=100 · Tier1≥80 Tier2≥60 Tier3≥40"]
+        LOAD["<b>Load</b><br/>pipeline/loader.py :: load_accounts()<br/>self-contained · auto-detects Salesforce's fake-HTML-.xls export quirk"]
+        NORM["<b>Normalization</b><br/>enrichment_pipeline.py → company_normalizer.py :: normalize_account_name()<br/>lowercase, strip punctuation, strip trailing suffixes (inc/llc/corp/ltd)"]
+        IND["<b>Industry Classification</b><br/>enrichment_pipeline.py → industry_classifier.py :: classify_industry()<br/>pure keyword fallback (healthcare, financial services, SaaS, retail, energy, transport)"]
+        COMP["<b>Company Intelligence</b> — curated data<br/>enrichment_pipeline.py → company_intelligence.py :: analyze_company()<br/>data/company_patterns.json: known_companies → business_patterns → workload_profiles<br/>3-pass match + false-positive exclusions (api⊂capital, card⊂cardiology)<br/>✓ industry override done SAFELY: .where(industry != Unknown, ...)"]
+        TECH["<b>Technology Enrichment</b><br/>technology_pipeline.py → technology_enrichment.py :: analyze_technology()<br/>data/technology_patterns.json · whole-word regex matching · score capped at 30"]
+        ACCI["<b>Account Intelligence</b><br/>account_pipeline.py → account_intelligence.py :: analyze_account_intelligence()<br/>industry-specific messaging: database pressure, use cases, buyer personas"]
+        ACCE["<b>Account Enrichment</b><br/>account_enrichment_pipeline.py → account_enrichment.py :: enrich_account()<br/>company_size, revenue_signal, engineering_signal, ai_initiatives"]
+        ARCH["<b>Company Archetype</b> ⚠ CONFIRMED ACCIDENTAL BUG<br/>company_archetype_pipeline.py → company_archetype.py :: classify_company_archetype()<br/>OVERWRITES company_intelligence's curated value, NO guard (unlike Industry above)<br/>every run silently discards curated archetype for the live keyword guess"]
+        SCORE["<b>COI Scoring</b><br/>scoring_pipeline.py → scoring_engine.py :: calculate_coi()<br/>Workload Fit 40 + Database Opp 30 + Real-Time 15 + Tech Env 10 + Company 5 = 100<br/>Tier1≥80 · Tier2≥60 · Tier3≥40 · Tier4&lt;40"]
 
         LOAD --> NORM --> IND --> COMP --> TECH --> ACCI --> ACCE --> ARCH --> SCORE
     end
 
-    subgraph GATEPATH["No pipeline/ wrapper - main.py calls these directly"]
+    subgraph GATEPATH["② No pipeline/ wrapper — main.py calls these directly, inline"]
         direction TB
-        EXPL["modules/opportunity_explainer.py<br/><i>generate_opportunity_explanation()</i>"]
-        GATE["modules/deterministic_gate.py<br/><i>deterministic_gate()</i><br/>Tier4 → hard SKIP<br/>else: workload_evidence AND score≥40 (LLM_THRESHOLD) → LLM"]
+        EXPL["<b>Opportunity Explanation</b><br/>modules/opportunity_explainer.py :: generate_opportunity_explanation()<br/>human-readable 'why this account' narrative"]
+        GATE["<b>Deterministic Gate</b><br/>modules/deterministic_gate.py :: deterministic_gate()<br/>Tier4 → hard SKIP, always<br/>else: workload_evidence AND gate_score≥40 (LLM_THRESHOLD) → LLM<br/>gate_score = overall_coi  +15 db-tech  +10 modernization  +5 cloud  −30 negative<br/>threshold lowered 50→40 to match Tier3's own cutoff — was silently excluding<br/>2,709 real Tier-3 accounts scoring_engine.py itself considered worth a look"]
         EXPL --> GATE
     end
 
     DECISION{"run_llm?"}
+    SKIP(["<b>SKIP</b> — zero LLM cost<br/>llm_validation=True, stage=SKIP"])
 
-    SKIP(["SKIP — no LLM cost<br/>llm_validation=True, stage=SKIP"])
-
-    subgraph LLMGEN["LLM Intelligence Generation - pipeline/llm_validation_pipeline.py → sales_intelligence_pipeline.py::validate_account()"]
+    subgraph LLMGEN["③ LLM Intelligence Generation — llm_validation_pipeline.py → sales_intelligence_pipeline.py :: validate_account()"]
         direction TB
-        REGATE["deterministic_gate() again, per-row<br/>(redundant but safe - pure/stateless)"]
-        SEARCH["modules/web_search_client.py<br/><i>search_company()</i> · Serper.dev<br/>only if state/province known"]
-        PROMPT["modules/llm_prompt_builder.py<br/><i>build_intelligence_prompt()</i><br/>bans database/distributed/Couchbase in specific_constraint<br/>independent 40/30/30 rubric, blind to COI/Tier"]
-        CALL["modules/llm_client.py<br/><i>call_llm()</i> · boto3 Bedrock invoke_model<br/>meta.llama3-70b-instruct-v1:0"]
-        VALIDATE["validate_llm_output() (same file)<br/>conservative ceilings · ungrounded-score ceilings<br/>magnitude floors/ceilings · defunct detection<br/>prompt-leakage · hallucination detection"]
+        REGATE["deterministic_gate() runs AGAIN, per-row<br/><i>redundant with the batch-level filter above, but safe — pure/stateless function</i>"]
+        SEARCH["<b>Web Search Grounding</b><br/>modules/web_search_client.py :: search_company() · Serper.dev<br/>only if Account State/Province is known — disambiguates common names<br/>('United Community Bank' returned 2 unrelated real banks under the same name)"]
+        PROMPT["<b>Prompt Construction</b><br/>modules/llm_prompt_builder.py :: build_intelligence_prompt()<br/>independent 40/30/30 rubric, computed BLIND to overall_coi/tier/database_intensity<br/>specific_constraint field: code-banned from 'database/distributed/Couchbase/data layer/data platform'<br/>— 2 earlier, softer bans were both routed around by moving the same pattern later in the sentence"]
+        CALL["<b>Bedrock Call</b><br/>modules/llm_client.py :: call_llm()<br/>boto3 invoke_model · meta.llama3-70b-instruct-v1:0 · us-east-1<br/>own inline extract_json() strips markdown fences, regex-extracts the JSON object"]
+
+        subgraph VALIDATE["validate_llm_output() — same file, ~15 checks, in order"]
+            direction TB
+            V1["required-field + non-empty-content checks"]
+            V2["independent score range + internal-consistency checks<br/>(sub-scores must actually sum to llm_total_score)"]
+            V3["validate_recognition_evidence()<br/>llm_company_recognized is NOT trusted alone — checks the actual fact text<br/>against GENERIC_FACT_PHRASES ('as a FinTech company...', 'typically...')"]
+            V4["enforce_company_recognition_cap()<br/>if NOT verified: clamp to CONSERVATIVE_CEILINGS (15/10/10)<br/>confirmed model doesn't self-limit (Trumid scored 60 despite saying 'I score conservatively')"]
+            V5["detect_ungrounded_score()<br/>SEPARATE cap for a DIFFERENT problem: verified but reasoning cites no real number<br/>confirmed ~50% of 'recognized' accounts converged on the identical 25/20/20=65 combo"]
+            V6["apply_magnitude_based_score_adjustment()<br/>regex-extracts real dollar figures / employee counts from the stated fact<br/>FORCES a floor for confirmed-large scale, a ceiling for confirmed-small — real numbers win"]
+            V7["detect_defunct_company()<br/>'was acquired' + past-tense self-description = defunct (Sqrrl Data, acquired by Amazon)<br/>'was acquired' ALONE ≠ defunct (Alexion under AstraZeneca is still a live account)"]
+            V8["detect_prompt_leakage() · detect_generic_narrative() · detect_generic_discovery()<br/>catches the model echoing internal prompt examples back as if they were real analysis,<br/>and template convergence in the narrative or discovery-phase objectives"]
+            V9["detect_hallucinations() against FORBIDDEN_CLAIMS<br/>validate_account_identity() — response must actually be about the account asked about"]
+
+            V1 --> V2 --> V3 --> V4 --> V5 --> V6 --> V7 --> V8 --> V9
+        end
 
         REGATE --> SEARCH --> PROMPT --> CALL --> VALIDATE
     end
 
-    MERGE["Merge back on Account Name<br/>.drop_duplicates(keep='first') first - prevents row-count inflation<br/>(real prior bug: 9758 in → 9760 out)"]
+    MERGE["<b>Merge back</b> on Account Name<br/>.drop_duplicates(keep='first') on the LLM side FIRST — prevents row-count inflation<br/>(real prior bug: 9758 in → 9760 out from an unguarded many-to-many join)<br/>known limitation: Account Name isn't a unique key — duplicate-named accounts<br/>share whichever result was processed first"]
 
-    EXPORT["pipeline/intelligence_export_pipeline.py<br/><i>export_account_intelligence()</i> → account_intelligence.json (Streamlit)"]
-    EXCEL["build_ae_call_list.py → AE_Call_List.xlsx"]
+    EXPORT["pipeline/intelligence_export_pipeline.py :: export_account_intelligence()<br/>→ account_intelligence.json (Streamlit dashboard)"]
+    EXCEL["build_ae_call_list.py<br/>→ AE_Call_List.xlsx (the seller-facing deliverable)"]
 
     START --> ENRICH
     SCORE --> GATEPATH
@@ -56,17 +69,22 @@ flowchart TD
     MERGE --> EXPORT
     MERGE --> EXCEL
 
-    PREPASS["classification_prepass.py (standalone, manual, per-run)<br/>filters industry==Unknown from an ALREADY-scored file<br/>filters housekeeping/deletion rows by name first<br/>verified classification → recomputes COI via SAME calculate_coi()<br/>writes a NEW file - does NOT touch company_patterns.json,<br/>nothing persists automatically to future runs"]
-    RERUN["rerun_qualified_with_search.py<br/>⚠ REDUNDANT for any brand-new run - main.py's own<br/>first pass already grounds via Serper (confirmed 2026-07-29)"]
-    REMOVED["6 dead modules REMOVED 2026-07-29 (commit dd21f5e):<br/>llm_json_parser · account_normalizer · web_enrichment<br/>sales_assistant · talk_track_generator · dashboard_generator<br/>confirmed via repo-wide grep, verified via identical<br/>precursor_review.py output before/after removal"]
+    subgraph SIDE["Upstream & downstream — not inside main.py's own run"]
+        direction LR
+        PREPASS["<b>classification_prepass.py</b> — standalone, manual, per-run<br/>filters industry==Unknown from an ALREADY-scored file<br/>filters obvious housekeeping/deletion rows by name first<br/>verified classification → recomputes COI via the SAME calculate_coi()<br/>writes a NEW file, does NOT touch company_patterns.json —<br/>nothing persists automatically to future runs, human must review + repoint manually"]
+        RERUN["<b>rerun_qualified_with_search.py</b> ⚠ REDUNDANT for any brand-new run<br/>built for accounts validated BEFORE Serper existed in this codebase —<br/>main.py's own first pass already grounds via Serper now (confirmed 2026-07-29,<br/>byte-identical output before/after running it — real ~$1.42 wasted, not a data bug)"]
+    end
 
-    PREPASS -.->|"human reviews output,<br/>then manually points<br/>build_ae_call_list.py at it"| EXCEL
-    MERGE -.->|"historical use only,<br/>predates Serper"| RERUN
+    PREPASS -.->|"human reviews output,<br/>then manually repoints<br/>build_ae_call_list.py"| EXCEL
 
-    classDef bug fill:#F2A9A5,stroke:#6b1a15,color:#3a0d0a
-    classDef noguard fill:#FFDDA1,stroke:#6b4a15,color:#4a3600
-    classDef dead fill:#e8e8e8,stroke:#999,color:#555,stroke-dasharray: 4 3
+    classDef stageBox fill:#fff,stroke:#D9D9D9,stroke-width:1px,color:#1a1a1a,text-align:left
+    classDef bug fill:#F2A9A5,stroke:#6b1a15,color:#3a0d0a,text-align:left
+    classDef noguard fill:#FFF3B0,stroke:#8a6d00,color:#4a3600,text-align:left
+    classDef decision fill:#1F3864,stroke:#1F3864,color:#fff
+    classDef terminal fill:#2F5496,stroke:#1F3864,color:#fff
 
+    class LOAD,NORM,IND,COMP,TECH,ACCI,ACCE,SCORE,EXPL,SEARCH,PROMPT,CALL,V1,V2,V3,V4,V5,V6,V7,V8,V9,MERGE,EXPORT,EXCEL,REGATE stageBox
     class ARCH,RERUN bug
     class GATE noguard
-    class REMOVED dead
+    class DECISION decision
+    class START,SKIP terminal
