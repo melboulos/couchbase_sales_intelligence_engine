@@ -90,14 +90,22 @@ Deterministic Gate (modules/deterministic_gate.py)
 ```
 Salesforce Export
        ↓
-python main.py                    (score + classify + first LLM pass)
-       ↓
-python rerun_qualified_with_search.py   (full run with web search grounding)
+python main.py                    (score + classify + LLM pass - includes
+                                    web search grounding automatically if
+                                    SERPER_API_KEY is set, see Setup above)
        ↓
 python build_ae_call_list.py      (build the AE-ready Excel call list)
        ↓
 Sales rep prepares discovery call
 ```
+
+**Do not run `rerun_qualified_with_search.py` for a fresh account list.**
+It exists only to re-ground a batch that was validated *before* Serper
+was added to this codebase. Confirmed 2026-07-29: running it against a
+brand-new `main.py` output produces byte-identical results (`main.py`
+already grounds via Serper) — real, confirmed wasted spend (~$1.42 on
+a 485-account run), not a data-quality issue. See the warning in the
+script's own docstring for the full detail.
 
 ## Roadmap
 
