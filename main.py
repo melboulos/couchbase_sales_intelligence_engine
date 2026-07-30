@@ -1,4 +1,7 @@
 import pandas as pd
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from pipeline.loader import load_accounts
 from pipeline.enrichment_pipeline import (

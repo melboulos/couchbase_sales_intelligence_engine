@@ -35,6 +35,9 @@
 import concurrent.futures
 import time
 import pandas as pd
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from modules.llm_client import call_llm
 from modules.classification_prompt_builder import (

@@ -18,6 +18,9 @@
 # =====================================================
 
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 from modules.web_search_client import search_company, format_web_context
 
 if not os.environ.get("SERPER_API_KEY"):

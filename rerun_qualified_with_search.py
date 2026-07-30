@@ -51,6 +51,9 @@
 # =====================================================
 
 import pandas as pd
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from pipeline.llm_validation_pipeline import validate_accounts
 from modules.deterministic_gate import deterministic_gate
