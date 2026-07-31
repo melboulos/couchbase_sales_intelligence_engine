@@ -24,7 +24,15 @@ def checkpoint(msg):
     print(f">>> CHECKPOINT: {msg}", flush=True)
 
 
-INPUT_FILE = "output/enterprise_east_Scored_FINAL.xlsx"
+import argparse
+
+def _parse_args():
+    parser = argparse.ArgumentParser(description="Build the AE-facing Excel call list from a scored file.")
+    parser.add_argument("--input", default="output/enterprise_east_Scored.xlsx", help="Path to a scored file (main.py's output)")
+    return parser.parse_args()
+
+_args = _parse_args()
+INPUT_FILE = _args.input
 OUTPUT_FILE = "output/AE_Call_List.xlsx"
 # Real, licensed Couchbase brand banner (768x192, 4:1) - not
 # generated or reconstructed here. If this file isn't present, the

@@ -58,9 +58,19 @@ load_dotenv()
 from pipeline.llm_validation_pipeline import validate_accounts
 from modules.deterministic_gate import deterministic_gate
 
-SCORED_FILE = "output/enterprise_east_Scored.xlsx"
+import argparse
+import os
+
+def _parse_args():
+    parser = argparse.ArgumentParser(description="Re-ground already-qualified accounts predating Serper (see docstring warning above).")
+    parser.add_argument("--input", default="output/enterprise_east_Scored.xlsx", help="Path to a scored file (main.py's output)")
+    return parser.parse_args()
+
+_args = _parse_args()
+SCORED_FILE = _args.input
+_input_stem = os.path.splitext(os.path.basename(SCORED_FILE))[0].replace("_Scored", "")
 CHECKPOINT_FILE = "output/llm_validation_results.xlsx"
-FINAL_OUTPUT_FILE = "output/enterprise_east_Scored_FINAL.xlsx"
+FINAL_OUTPUT_FILE = f"output/{_input_stem}_Scored_FINAL.xlsx"
 
 TEXT_FIELDS_TO_SANITIZE = [
     "workload_profile", "business_model", "database_signal",

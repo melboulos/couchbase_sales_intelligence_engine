@@ -1290,7 +1290,7 @@ def validate_account(row):
 
         from modules.web_search_client import search_company, format_web_context
 
-        location = row.get("Account State/Province (text only)", "")
+        location = row.get("Account State/Province", "")
 
         # Without a known location, a common/generic company name has
         # no way to be disambiguated if search returns a mixed bag of

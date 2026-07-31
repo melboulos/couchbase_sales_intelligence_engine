@@ -24,8 +24,17 @@ from pipeline.intelligence_export_pipeline import export_account_intelligence
 print("Starting Couchbase Sales Intelligence Engine")
 print("-------------------------------------------")
 
-INPUT_FILE = "input/Enterprise_East_Account_List.xlsx"
-OUTPUT_FILE = "output/enterprise_east_Scored.xlsx"
+import argparse
+
+def _parse_args():
+    parser = argparse.ArgumentParser(description="Run the full Couchbase Sales Intelligence pipeline.")
+    parser.add_argument("--input", default="input/Enterprise_East_Account_List.xlsx", help="Path to the raw account list to process")
+    return parser.parse_args()
+
+_args = _parse_args()
+INPUT_FILE = _args.input
+_input_stem = os.path.splitext(os.path.basename(INPUT_FILE))[0]
+OUTPUT_FILE = f"output/{_input_stem}_Scored.xlsx"
 
 
 # =====================================================
@@ -250,6 +259,37 @@ print(
     f"Validated: {len(validated_llm_accounts)} / {len(llm_accounts)} "
     f"LLM-processed accounts"
 )
+
+# =====================================================
+# WEB SEARCH GROUNDING VISIBILITY
+#
+# Added 2026-07-30 after a real production run silently failed
+# search grounding for 1,524/1,524 LLM-processed accounts (a
+# transient Serper rate-limit hit during a heavy concurrent burst,
+# swallowed by search_company()'s soft-fail design with zero
+# visible error) - this went undiscovered until a manual, multi-
+# step investigation well after the run finished and money had
+# already been spent. This summary makes that kind of silent,
+# systemic failure visible immediately, every run, right where the
+# rest of the LLM summary already prints - not something you have
+# to think to go looking for.
+# =====================================================
+
+if len(validated_llm_accounts) > 0:
+    used_search_count = (validated_llm_accounts["llm_used_web_search"] == True).sum()
+    print(
+        f"Web search grounding: {used_search_count} / {len(validated_llm_accounts)} "
+        f"validated accounts used a real search result"
+    )
+    search_rate = used_search_count / len(validated_llm_accounts)
+    if search_rate < 0.10:
+        print(
+            "  WARNING: less than 10% of accounts got web search grounding. "
+            "If most of these accounts have a real Account State/Province, "
+            "this may indicate a Serper rate-limit or outage during this run, "
+            "not a data gap - check modules/web_search_client.py directly "
+            "before assuming this is expected."
+        )
 
 llm_merge_columns = [
     "Account Name",

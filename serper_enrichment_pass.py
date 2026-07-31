@@ -58,7 +58,15 @@ load_dotenv()
 from pipeline.loader import load_accounts
 from modules.web_search_client import search_company
 
-INPUT_FILE = "input/Enterprise_East_Account_List.xlsx"
+import argparse
+
+def _parse_args():
+    parser = argparse.ArgumentParser(description="Universal web-search grounding pass for every account.")
+    parser.add_argument("--input", default="input/Enterprise_East_Account_List.xlsx", help="Path to the raw account list to search")
+    return parser.parse_args()
+
+_args = _parse_args()
+INPUT_FILE = _args.input
 CACHE_FILE = "output/serper_search_cache.xlsx"
 
 MAX_WORKERS = 5

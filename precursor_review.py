@@ -41,7 +41,15 @@ from modules.opportunity_explainer import generate_opportunity_explanation
 # CONFIG - EDIT THIS
 # =====================================================
 
-INPUT_FILE = "input/Enterprise_East_Account_List.xlsx"   # <-- change to your actual file path
+import argparse
+
+def _parse_args():
+    parser = argparse.ArgumentParser(description="Free preview of enrichment/scoring/gate results, no LLM cost.")
+    parser.add_argument("--input", default="input/Enterprise_East_Account_List.xlsx", help="Path to the raw account list to preview")
+    return parser.parse_args()
+
+_args = _parse_args()
+INPUT_FILE = _args.input
 OUTPUT_FILE = "output/precursor_review.xlsx"
 
 # Average total tokens per LLM call, measured from real

@@ -167,6 +167,87 @@ def enrich_account(row):
         )
 
 
+    elif business_model == "SaaS":
+
+        ai_initiatives = (
+            "Usage analytics, "
+            "churn prediction, "
+            "product intelligence AI"
+        )
+
+
+    elif business_model == "Utility":
+
+        ai_initiatives = (
+            "Predictive maintenance, "
+            "grid analytics, "
+            "demand forecasting AI"
+        )
+
+
+    elif business_model == "Media & Advertising":
+
+        ai_initiatives = (
+            "Ad targeting, "
+            "audience intelligence, "
+            "content personalization AI"
+        )
+
+
+    elif business_model == "Logistics & Transportation":
+
+        ai_initiatives = (
+            "Route optimization, "
+            "fleet analytics, "
+            "predictive logistics AI"
+        )
+
+
+    elif business_model == "Retail":
+
+        ai_initiatives = (
+            "Demand forecasting, "
+            "personalization, "
+            "inventory intelligence AI"
+        )
+
+
+    elif business_model == "Insurance":
+
+        ai_initiatives = (
+            "Underwriting analytics, "
+            "claims intelligence, "
+            "fraud detection AI"
+        )
+
+
+    elif business_model == "Pharma & Medical Device":
+
+        ai_initiatives = (
+            "Clinical trial analytics, "
+            "regulatory intelligence, "
+            "drug discovery AI"
+        )
+
+
+    elif business_model == "Telecommunications":
+
+        ai_initiatives = (
+            "Network analytics, "
+            "churn prediction, "
+            "service intelligence AI"
+        )
+
+
+    elif business_model == "Media & Entertainment":
+
+        ai_initiatives = (
+            "Content recommendation, "
+            "audience intelligence, "
+            "viewership analytics AI"
+        )
+
+
     return {
 
         "company_size": company_size,

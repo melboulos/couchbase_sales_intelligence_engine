@@ -53,9 +53,19 @@ from modules.scoring_engine import calculate_coi
 # CONFIG
 # =====================================================
 
-INPUT_FILE = "output/report1784905185024_Scored.xlsx"
-OUTPUT_FILE = "output/report1784905185024_Scored_with_classification.xlsx"
-CHECKPOINT_FILE = "output/classification_prepass_results.xlsx"
+import argparse
+import os
+
+def _parse_args():
+    parser = argparse.ArgumentParser(description="LLM classification pre-pass for Unknown-industry accounts.")
+    parser.add_argument("--input", default="output/report1784905185024_Scored.xlsx", help="Path to a scored file (main.py's output)")
+    return parser.parse_args()
+
+_args = _parse_args()
+INPUT_FILE = _args.input
+_input_stem = os.path.splitext(os.path.basename(INPUT_FILE))[0]
+OUTPUT_FILE = f"output/{_input_stem}_with_classification.xlsx"
+CHECKPOINT_FILE = f"output/{_input_stem}_classification_prepass_results.xlsx"
 
 MAX_WORKERS = 5
 CHECKPOINT_EVERY = 100

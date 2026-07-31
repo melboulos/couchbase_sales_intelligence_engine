@@ -643,7 +643,8 @@
         "card"
       ],
       "industry": "Financial Services",
-      "workload_profile": "payment_platform"
+      "workload_profile": "payment_platform",
+      "business_model": "FinTech"
     },
     "Healthcare Technology": {
       "keywords": [
@@ -653,7 +654,8 @@
         "care"
       ],
       "industry": "Healthcare",
-      "workload_profile": "customer_application"
+      "workload_profile": "customer_application",
+      "business_model": "Healthcare Technology"
     },
     "SaaS": {
       "keywords": [
@@ -664,7 +666,8 @@
         "digital platform"
       ],
       "industry": "Technology / SaaS",
-      "workload_profile": "saas_platform"
+      "workload_profile": "saas_platform",
+      "business_model": "SaaS"
     },
     "API Platform": {
       "keywords": [
@@ -674,7 +677,8 @@
         "data exchange"
       ],
       "industry": "Technology / SaaS",
-      "workload_profile": "api_platform"
+      "workload_profile": "api_platform",
+      "business_model": "Integration Platform"
     },
     "Utilities": {
       "keywords": [
@@ -685,7 +689,8 @@
         "utilities"
       ],
       "industry": "Utilities",
-      "workload_profile": "utilities_platform"
+      "workload_profile": "utilities_platform",
+      "business_model": "Utility"
     },
     "Media/Advertising": {
       "keywords": [
@@ -695,7 +700,8 @@
         "broadcast"
       ],
       "industry": "Media & Advertising",
-      "workload_profile": "media_platform"
+      "workload_profile": "media_platform",
+      "business_model": "Media & Advertising"
     },
     "Logistics/Transportation": {
       "keywords": [
@@ -707,7 +713,8 @@
         "distribution"
       ],
       "industry": "Logistics & Transportation",
-      "workload_profile": "logistics_platform"
+      "workload_profile": "logistics_platform",
+      "business_model": "Logistics & Transportation"
     },
     "Retail": {
       "keywords": [
@@ -716,7 +723,8 @@
         "stores"
       ],
       "industry": "Retail",
-      "workload_profile": "retail_platform"
+      "workload_profile": "retail_platform",
+      "business_model": "Retail"
     },
     "Insurance": {
       "keywords": [
@@ -725,7 +733,8 @@
         "annuity"
       ],
       "industry": "Insurance",
-      "workload_profile": "insurance_platform"
+      "workload_profile": "insurance_platform",
+      "business_model": "Insurance"
     },
     "Pharma/Medical Device": {
       "keywords": [
@@ -736,7 +745,8 @@
         "medical devices"
       ],
       "industry": "Pharma & Medical Device",
-      "workload_profile": "pharma_device_platform"
+      "workload_profile": "pharma_device_platform",
+      "business_model": "Pharma & Medical Device"
     },
     "Telecom": {
       "keywords": [
@@ -747,7 +757,8 @@
         "cellular"
       ],
       "industry": "Telecommunications",
-      "workload_profile": "telecom_platform"
+      "workload_profile": "telecom_platform",
+      "business_model": "Telecommunications"
     },
     "Media/Entertainment": {
       "keywords": [
@@ -758,7 +769,8 @@
         "animation"
       ],
       "industry": "Media & Entertainment",
-      "workload_profile": "media_entertainment_platform"
+      "workload_profile": "media_entertainment_platform",
+      "business_model": "Media & Entertainment"
     }
   },
   "workload_profiles": {
