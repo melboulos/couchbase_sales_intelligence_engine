@@ -271,6 +271,22 @@ KEYWORD_FALSE_POSITIVE_EXCLUSIONS = {
     "utility": ["a utility's", "utilities'"],
     "utilities": ["a utility's", "utilities'"],
 
+    # "retail" is a substring of "retail banking" - a standard finance
+    # term for consumer/personal banking, unrelated to the retail
+    # (commerce/stores) industry. Found via a second dataset audit
+    # (2026-07-31): GFNorte ("Grupo Financiero Banorte... universal
+    # banking products, retail banking products") is a real Mexican
+    # bank, not a retailer.
+    "retail": ["retail banking"],
+
+    # "merchant" is a substring of "merchant bar" - a real structural-
+    # steel product category (a bar shape used in construction),
+    # unrelated to FinTech's payment-processing sense of "merchant".
+    # Found via the same audit: Gerdau S.A. ("Gerdau manufactures
+    # merchant bar, structural steel...") is a real global steel
+    # producer, not a payments company.
+    "merchant": ["merchant bar"],
+
     # "api" is a substring of "Capital" - found via real
     # production data (KPS Capital Partners, H.I.G. Capital
     # Management both incorrectly tagged via this collision).
@@ -360,6 +376,47 @@ def requires_power_utility_context(keyword, text):
     if keyword != "power":
         return False
     return not any(term in text for term in POWER_UTILITY_CONTEXT_TERMS)
+
+
+# =====================================================
+# "CARE" SIBLING-KEYWORD RULE (web-search fallback only)
+#
+# Same underlying problem as "power" above: confirmed via a SECOND
+# dataset audit (2026-07-31, not just the earlier Enterprise East
+# one) that "care" alone keeps colliding with unrelated "___care"
+# compounds across totally different industries - "lawn care"
+# (Massey Services, pest control), "Client Care" (Cambridge Air
+# Solutions, HVAC), "NovaCare Way" (Philadelphia Eagles' own
+# facility address, a proper noun). An ever-growing exclusion
+# list has the same diminishing-returns problem already
+# identified for "power" - English has too many "___care"
+# phrases to enumerate them all.
+#
+# Rather than inventing a new confirming-term list from scratch
+# (like POWER_UTILITY_CONTEXT_TERMS), this reuses something
+# already available: "health", "medical", "patient", and "care"
+# are ALL keywords in the SAME Healthcare Technology pattern.
+# Every genuine healthcare match already seen matches "health" or
+# "medical" independently and directly - it's specifically the
+# false positives that have "care" completely isolated with none
+# of its sibling keywords anywhere in the text. Requiring "care"
+# to co-occur with one of its own pattern siblings is a more
+# targeted, lower-risk signal than an invented term list, and
+# needs no separate list to maintain.
+# =====================================================
+
+CARE_SIBLING_KEYWORDS = ["health", "medical", "patient"]
+
+
+def requires_care_sibling_context(keyword, text):
+    """
+    Returns True if this keyword match should be REJECTED for
+    lack of supporting context. Only applies to "care" - every
+    other keyword passes through unaffected.
+    """
+    if keyword != "care":
+        return False
+    return not any(term in text for term in CARE_SIBLING_KEYWORDS)
 
 
 # =====================================================
@@ -468,6 +525,8 @@ def _match_business_pattern(text, source_label):
             if is_false_positive_match(keyword, text):
                 continue
             if requires_power_utility_context(keyword, text):
+                continue
+            if requires_care_sibling_context(keyword, text):
                 continue
 
             result = _default_result()
