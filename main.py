@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 from dotenv import load_dotenv
 
@@ -37,6 +38,47 @@ print(f"Loaded {len(accounts)} accounts")
 print("\nColumns found:")
 for col in accounts.columns:
     print(f"- {col}")
+
+
+# =====================================================
+# WEB SEARCH GROUNDING MERGE
+#
+# Merges in cached search snippets from
+# serper_enrichment_pass.py's output (if it has been run)
+# BEFORE classification/company-intelligence matching runs, so
+# an account with no name-based signal at all still gets a real
+# shot at a genuine match via industry_classifier.py's and
+# company_intelligence.py's web-search fallback passes.
+#
+# Gracefully degrades to an empty column if the cache does not
+# exist yet - running main.py without ever having run
+# serper_enrichment_pass.py still works exactly as before, just
+# without the fallback benefit.
+#
+# Same drop_duplicates(keep="first") pattern already used
+# elsewhere in this codebase for the Account Name uniqueness
+# limitation (duplicate names for genuinely different accounts
+# share whichever cached result was fetched first).
+# =====================================================
+
+SEARCH_CACHE_FILE = "output/serper_search_cache.xlsx"
+
+print("\nMerging cached web search grounding (if available)...")
+
+if os.path.exists(SEARCH_CACHE_FILE):
+    search_cache = pd.read_excel(SEARCH_CACHE_FILE)
+    search_cache = search_cache.drop_duplicates(subset="Account Name", keep="first")
+    search_cache = search_cache[["Account Name", "search_snippets"]].rename(
+        columns={"search_snippets": "web_search_snippets"}
+    )
+    accounts = accounts.merge(search_cache, on="Account Name", how="left")
+    has_snippets = accounts["web_search_snippets"].notna().sum()
+    print(f"  Cache found: {SEARCH_CACHE_FILE}")
+    print(f"  Accounts with real web search grounding available: {has_snippets} / {len(accounts)}")
+else:
+    accounts["web_search_snippets"] = ""
+    print(f"  No cache found at {SEARCH_CACHE_FILE} - run serper_enrichment_pass.py first")
+    print("  to enable the web-search fallback in classification. Continuing without it.")
 
 
 # =====================================================

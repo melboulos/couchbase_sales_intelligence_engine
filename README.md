@@ -8,6 +8,7 @@ A sales intelligence pipeline that scores Salesforce accounts for genuine Couchb
 
 - 🎯 **Deterministic opportunity scoring** — a transparent, rule-based Couchbase Opportunity Index (COI), no LLM cost for accounts that don't qualify
 - ⚙️ **Technical workload identification** — matches accounts against known workload profiles (payment platforms, IoT, real-time analytics, and more)
+- 🌐 **Universal web-search grounding** — every account gets a real search (`serper_enrichment_pass.py`), not just ones whose name happens to match a pattern - recovers real signal for accounts a name-only match would otherwise bury by default
 - 🔍 **Web-grounded LLM seller intelligence** — real, retrieved facts (via Serper.dev) instead of relying on model memory alone
 - ❓ **Automated discovery questions** — a 4-phase, account-specific discovery progression for every qualifying account
 - 📋 **AE-ready Excel call briefs** — a polished, filterable call list built directly from the pipeline output
@@ -40,6 +41,11 @@ Teal = fully deterministic, no LLM cost. Purple = LLM-involved. Accounts on the 
 
 ```
 Salesforce Account List
+        |
+        v
+Web Search Grounding Merge (optional, if serper_enrichment_pass.py has
+been run - merges cached search results in as a FALLBACK signal only,
+never overrides a real name-based match)
         |
         v
 Normalization -> Industry Classification -> Company Intelligence
@@ -128,7 +134,11 @@ pip install -r requirements.txt
 
 **AWS credentials** — the pipeline calls Amazon Bedrock (`meta.llama3-70b-instruct-v1:0`) via `boto3`. Configure credentials with access to Bedrock in your environment (`aws configure`, environment variables, or an assumed role) before running `main.py`.
 
-**Web search grounding (optional, but recommended)** — `modules/web_search_client.py` gives the LLM real, retrieved information about each account (via [Serper.dev](https://serper.dev)) instead of relying purely on training-data memory. This exists because prompt-level fixes alone (banning generic phrases, banning specific opening words) proved unable to fix generic output for accounts the model has never heard of — see the July 27 section of the design doc for the full investigation. Set `SERPER_API_KEY` as an environment variable before running:
+**Web search grounding (optional, but recommended)** — `modules/web_search_client.py` gives the LLM real, retrieved information about each account (via [Serper.dev](https://serper.dev)) instead of relying purely on training-data memory. This exists because prompt-level fixes alone (banning generic phrases, banning specific opening words) proved unable to fix generic output for accounts the model has never heard of — see the July 27 section of the design doc for the full investigation. Set `SERPER_API_KEY` before running - recommended via a `.env` file (this project uses `python-dotenv`, already in `requirements.txt` - `load_dotenv()` runs at the top of every script that needs the key, so it only needs to be set once, not re-exported every terminal session):
+```bash
+echo 'SERPER_API_KEY="your-key-here"' > .env
+```
+Or, without a `.env` file (has to be re-exported every new terminal session):
 ```bash
 export SERPER_API_KEY="your-key-here"
 ```
@@ -137,6 +147,12 @@ If unset, the pipeline falls back to memory-only generation automatically — no
 **Input data** — `input/` is gitignored, since account lists typically contain sensitive customer data. Update `INPUT_FILE` in `main.py` to point at your own Salesforce export. Expected columns include at minimum `Account Name` — everything else is read with safe fallbacks and defaults to `"Unknown"` if missing, so a lean export (just name/owner/state/type/dates) works fine. `pipeline/loader.py` also auto-detects and correctly parses Salesforce report exports saved with a `.xls` extension that are actually HTML tables internally (a common export quirk) — no manual conversion needed.
 
 ## Running
+
+**Universal grounding pass (optional, recommended before a fresh account list's first run)** — runs a real web search for EVERY account, not just ones a name-based pattern already recognizes. Free to re-run: results are cached by Account Name in `output/serper_search_cache.xlsx` and checked before any new search happens, so re-running against the same list costs nothing, and adding new accounts only searches the delta:
+```bash
+python serper_enrichment_pass.py   # edit INPUT_FILE at the top first
+```
+This is separate from, and runs BEFORE, the per-account grounding already described above under "Web search grounding" — that grounding only ever applied to accounts that already qualified for the LLM step. This pass gives every account a fair shot at real signal BEFORE the deterministic gate decides who qualifies at all, so an account with an unrecognizable name isn't stuck at zero signal by default. `main.py` and `precursor_review.py` both merge this cache in automatically if present; if you skip this step, both fall back to name-only matching exactly as before, no error.
 
 **Full pipeline** — scores every account, applies the deterministic gate, and sends qualifying accounts to the LLM:
 ```bash
@@ -173,6 +189,7 @@ streamlit run app.py
 
 | File | Contents |
 |---|---|
+| `serper_search_cache.xlsx` | Raw web-search snippets for EVERY account, keyed by Account Name, from `serper_enrichment_pass.py`. Checked before any new Serper call, so re-running costs nothing for accounts already cached |
 | `<input-name>_Scored.xlsx` (name matches `OUTPUT_FILE` in `main.py`) | Full account list with COI, tier, and validated LLM intelligence merged in — including `llm_total_score` (independent LLM score, for comparison against `overall_coi` only, never blended into it), `llm_specific_fact`, `llm_company_recognized`, `llm_recognition_verified`, `llm_score_capped`, `llm_narrative_caveated` (unverified recognition — narrative built on an assigned category, not confirmed company knowledge), `llm_narrative_generic`/`llm_discovery_generic` (measurement-only flags for template convergence, don't block anything), `llm_constraint_violated` (the specific_constraint field mentioned a product/category name and got rejected), `llm_used_web_search` (this account's facts came from a real, live search result, not just model memory) |
 | `account_intelligence.json` | Same data, shaped for the Streamlit dashboard |
 | `AE_Call_List.xlsx` | Formatted deliverable for AEs — Summary, Overview, Call Briefs. Deliberately excludes the independent-scoring fields above; those are for internal gap-finding, not seller-facing |
@@ -189,10 +206,15 @@ streamlit run app.py
 - **Insurance, Pharma & Medical Device, and Utilities all shared the identical `(3, 3, 2)` rating as of July 25, producing a striking, confirmed side effect: 98.5% of a 136-account Insurance/Pharma sample converged on the exact same COI, mostly landing one point below the Tier 3 cutoff.** Investigated directly with the user on July 28-29: Pharma was deliberately separated out with its own `realtime_requirement: 3` (distinct from Insurance and Utilities' `2`), specifically chosen because Pharma & Medical Device workloads (manufacturing operations, supply chain, regulatory data) were judged a stronger real Couchbase fit than Insurance or Utilities. Confirmed on real data: 30 of 33 Pharma accounts moved from Tier 4 to Tier 3 as a direct, verified result; Insurance's 103 accounts were deliberately left untouched at the original rating. Elephant-company overrides for individually-verified large accounts still exist on top of these base ratings (see `known_companies` in `data/company_patterns.json`).
 - **The model can override or ignore given evidence with its own outside training knowledge, and no code check catches this.** Confirmed in production: Nikon Inc.'s fact explicitly states "51-200 employees," but the narrative describes "Nikon's large customer base" anyway, drawing on background knowledge of the famous parent brand rather than the stated fact about this specific US subsidiary. A milder version shows up whenever a well-known company (Epic Games, a professional sports team) has a thin given fact but a confident, detailed narrative anyway. Explicitly decided not to chase this with more code, alongside a related discovery-phase regression (a banned generic phase objective resurfacing in a near-identical reworded form) — both are semantic judgments ("is this from the given fact or from training knowledge") with no clean, deterministic signal to check, the same reasoning already applied to the pure-fabrication risk above. See the July 28 design doc section for the full review and the reasoning behind stopping here.
 
+- **Universal web-search grounding (`serper_enrichment_pass.py`) recovers real signal, but its keyword-based fallback matching has the same generic-boilerplate risk as name-only matching, just against noisier text.** Three rounds of stratified audits (2026-07-29/30) found and fixed real false positives: `career`/`careers` (near-universal company-profile boilerplate, the single biggest source - explained ~289 of ~2,327 initial LLM candidates on its own), `media@` press-contact emails, `health & wellness`/`medical, dental` benefits-page boilerplate, and several narrower keyword-substring collisions. `power` needed a co-occurrence rule rather than an exclusion list (generic "AI-powered" marketing language outnumbered genuine utility signal ~8x in real data) - `care` likely needs the same treatment but doesn't have it yet (confirmed real "___care" compounds across unrelated industries: "lawn care", "Client Care"). A general "vendor serves an industry" mismatch (a company that sells TO an industry tagged as if it WERE that industry - GE Smallworld selling GIS software to utilities, ParkOps serving retail/hospitality clients) is deliberately NOT generalized into a single rule: chasing it pattern-by-pattern has real diminishing returns, and a general rule risks blocking genuine matches (EqualizeRCM genuinely says "community health providers" and must keep matching Healthcare). See the comments directly above `NON_FIT_INSTITUTION_KEYWORDS` in `modules/company_intelligence.py` for the full, current list of what's fixed versus deliberately left open.
+- **Web-search results can be genuinely ambiguous for common names, and no keyword rule fixes this.** Confirmed real cases: "Zapata" (the actual account, an AI/quantum company) returned a snippet blending in an unrelated real estate developer who happens to share the surname; "Venus" (the account) returned an unrelated auto-transport company located in the town of Venus, FL. Accepted as a residual risk of grounding against real search results, not a bug to chase.
+- **A "Non-Profit / Charity" industry label isn't the same as a new LLM-cost reduction, and conflating the two overstates impact.** Nonprofit/charity signals now route explicitly to this label instead of collapsing into blank "Unknown" - a real data-quality improvement (a rep can tell "nothing found" apart from "found a nonprofit, correctly deprioritized"), but confirmed directly on real data that ~180 of 190 such accounts were already excluded from the LLM under an earlier, narrower keyword list - only ~10 represent genuinely new exclusions. Verified via `gate_decision`/`workload_profile`, not assumed: all 190 show `SKIP` and blank `workload_profile`, meaning none were ever going to reach the LLM regardless of the label change.
+
 ## Project structure
 
 ```
 main.py                  # Full pipeline entry point
+serper_enrichment_pass.py # Universal web-search grounding pass (optional, run before main.py)
 app.py                   # Streamlit dashboard
 build_ae_call_list.py    # AE-facing Excel export
 test_llm_validation.py   # Smoke test on a small account set
