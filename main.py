@@ -18,6 +18,7 @@ from pipeline.scoring_pipeline import score_accounts
 from pipeline.llm_validation_pipeline import validate_accounts
 from modules.deterministic_gate import deterministic_gate
 from modules.opportunity_explainer import generate_opportunity_explanation
+from modules.ownership_signal_detector import detect_ownership_signal
 from pipeline.intelligence_export_pipeline import export_account_intelligence
 
 
@@ -88,6 +89,28 @@ else:
     accounts["web_search_snippets"] = ""
     print(f"  No cache found at {SEARCH_CACHE_FILE} - run serper_enrichment_pass.py first")
     print("  to enable the web-search fallback in classification. Continuing without it.")
+
+
+# =====================================================
+# OWNERSHIP SIGNAL DETECTION
+#
+# Free, deterministic scan of the already-cached search data for
+# ownership-change/rebrand signals (Cardtronics/NCR Atleos,
+# PrimePay/CoAd, GroupM/WPP Media confirmed as real, found examples
+# this session - see modules/ownership_signal_detector.py for the
+# full rationale). No new search cost, no new LLM cost - runs on
+# data already merged in above.
+# =====================================================
+
+print("\nScanning for ownership/rebrand signals (free, no new cost)...")
+ownership_results = accounts.apply(detect_ownership_signal, axis=1)
+ownership_results = pd.DataFrame(ownership_results.tolist())
+accounts = pd.concat(
+    [accounts.reset_index(drop=True), ownership_results.reset_index(drop=True)],
+    axis=1
+)
+flagged_count = accounts["ownership_signal_detected"].sum()
+print(f"  Accounts with a detected ownership/rebrand signal: {flagged_count} / {len(accounts)}")
 
 
 # =====================================================

@@ -126,9 +126,9 @@ BRIEF_TITLE_FONT = Font(name="Arial", bold=True, size=19, color="FFFFFF")
 BRIEF_LABEL_FONT = Font(name="Arial", bold=True, size=15, color="2F5496")
 BRIEF_BODY_FONT = Font(name="Arial", size=15)
 BRIEF_LINK_FONT = Font(name="Arial", size=15, color="0563C1", underline="single")
-BRIEF_MARKER_FONT = Font(name="Arial", size=13, italic=True, color="7F7F7F")
+BRIEF_MARKER_FONT = Font(name="Arial", size=15, italic=True, color="000000")
 BRIEF_CANVAS_HEADER_FONT = Font(name="Arial", bold=True, size=14, color="1F3864")
-BRIEF_PRESSURE_BAR_FONT = Font(name="Courier New", size=13)
+BRIEF_PRESSURE_BAR_FONT = Font(name="Courier New", size=15)
 
 # Overview-specific fonts, also kept separate from the shared
 # constants above for the same reason as the BRIEF_ fonts - HEADER_FONT
@@ -477,6 +477,13 @@ def build_research_confidence(row):
     return "Verified from model recognition (no live search performed for this account)."
 
 
+def build_ownership_note(row):
+    if row.get("ownership_signal_detected") in (True, 1, 1.0):
+        note = row.get("ownership_signal_note", "")
+        return f"\U0001F3E2 Possible ownership/rebrand change detected - verify before outreach: \"{note}\""
+    return "(no ownership/rebrand signal detected in cached search data)"
+
+
 CANVAS_FIELD_ORDER = [
     ("\U0001F3AF Why This Account", lambda r: (flatten_bullet_list(r.get("engineering_implications", "")).split("\n")[0]
                                                  if r.get("engineering_implications") else "(no engineering implications noted)")),
@@ -489,6 +496,7 @@ CANVAS_FIELD_ORDER = [
     ("\U0001F525 Engineering Pressures", build_opportunity_pressure_bars),
     ("\u2753 Discovery Objectives", build_discovery_checklist),
     ("\u2705 Research Confidence", build_research_confidence),
+    ("\U0001F3E2 Ownership/Rebrand Check", build_ownership_note),
 ]
 
 
@@ -526,6 +534,11 @@ for i, row in call_list.iterrows():
         if row.get("llm_used_web_search") in (True, 1, 1.0)
         else ""
     )
+    ownership_marker = (
+        "\U0001F3E2 Possible Ownership Change"
+        if row.get("ownership_signal_detected") in (True, 1, 1.0)
+        else ""
+    )
     llm_score_display = row.get("llm_total_score", "")
     llm_score_default_marker = (
         " (default)"
@@ -550,7 +563,7 @@ for i, row in call_list.iterrows():
     # (confirmed via real font-metrics check: a title with the LLM
     # score plus even one marker exceeded the available cell width
     # in the common case, not just a rare worst-case combination).
-    markers = "   ".join(m for m in [caveat_marker, web_search_marker] if m)
+    markers = "   ".join(m for m in [caveat_marker, web_search_marker, ownership_marker] if m)
     if markers:
         marker_cell = ws_briefs.cell(row=current_row, column=1)
         ws_briefs.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=2)
