@@ -253,6 +253,322 @@
   point someone would actually consider running it, not just documented
   here.
 
+## Universal Serper grounding project (2026-07-29/30) - major capability
+## addition, three rounds of real bug-finding, real spend
+
+**The problem this solved**: an account's entire fate in this pipeline - Tier
+1 vs. buried in Tier 4, LLM-eligible or not - was decided entirely by whether
+its NAME happened to match a hardcoded keyword/pattern list. A genuinely
+strong prospect with an unrecognizable name got zero deterministic signal at
+all (`workload_profile` empty, `database_intensity` 0), landing in Tier 4 by
+default - not because it was a weak prospect, but because the pipeline had
+no information about it whatsoever.
+
+**What was built:**
+- `serper_enrichment_pass.py` - new standalone script, runs a real Serper.dev
+  search for EVERY account (not just name-matched ones), caches raw
+  snippets in `output/serper_search_cache.xlsx` keyed by Account Name.
+  Per-row checkpointed (every 100), fully resumable - re-running against
+  the same account list costs nothing for already-cached accounts, only
+  the delta gets searched. Verified 3 ways in a sandbox before running for
+  real: fresh run searches everyone, immediate re-run costs nothing, adding
+  new accounts to the list only searches the new ones.
+- `main.py` / `precursor_review.py` both patched identically - merge the
+  cached `search_snippets` into the accounts DataFrame as
+  `web_search_snippets`, right after load, before any classification runs.
+  Gracefully degrades to an empty column if the cache doesn't exist yet.
+  `precursor_review.py` needed the SAME patch as `main.py` since its whole
+  purpose is previewing real impact before spending anything - without the
+  matching patch it would have given a misleading "nothing changed"
+  reading.
+- `modules/industry_classifier.py` and `modules/company_intelligence.py`
+  restructured: existing name-only matching completely unchanged (verified
+  via explicit precedence tests - a name match is NEVER overridden by
+  snippet content), NEW fallback only tried when name-alone finds nothing.
+  Real known-company/business-pattern identity matching (Pass 1/2) stays
+  untouched - only business-pattern KEYWORD matching (Pass 3) gets the
+  fallback, since identity matching on a snippet (which can mention other
+  companies in passing) was never a safe idea.
+
+**Real, measured impact** (confirmed via `precursor_review.py`, zero cost):
+LLM candidates went 485 (original, name-only) -> 2,327 (universal
+grounding, before any cleanup) -> 2,038 -> 2,022 -> 2,012 (three rounds of
+false-positive fixing). Net effect: roughly 4x more accounts now get real
+consideration than before grounding existed, at a real but modest
+~$3.89 estimated LLM cost for the genuinely new candidates. Tier 4 dropped
+from 6,216 to ~4,684 - about 1,850 accounts recovered from "no signal at
+all" into a real tier.
+
+**Real bugs found via stratified audits of the newly-qualified population,
+fixed and verified before spending real money on them:**
+- `care` colliding with `career`/`careers` (near-universal company-profile
+  boilerplate) - the single biggest false-positive source, explained ~289
+  of the ~2,327 candidates on its own.
+- `media@` colliding with press-contact email addresses.
+- `cardiac`/`piccard`, `contextmedia`, `directed energy` - narrower keyword
+  substring collisions, same class as pre-existing exclusions (card/media/
+  energy/api), found via direct spot-check of real cached snippets.
+- `power` needed a co-occurrence rule, not just an exclusion list - generic
+  marketing language ("AI-powered", "powering healthcare data exchange")
+  outnumbered genuine utility signal ~8x in real data. Now requires a real
+  utility-specific term (electric/grid/utility/etc.) to co-occur.
+- Institution-type mismatches (a law firm mentioning "health care" as its
+  practice area, a municipal government, care-delivery nonprofits) -
+  ported and extended `NON_FIT_INSTITUTION_KEYWORDS` from
+  `sales_intelligence_pipeline.py`'s classification-prepass guard into the
+  main matching path too.
+- Nonprofit/charity signals now explicitly ROUTE to a real "Non-Profit /
+  Charity" category instead of collapsing into blank "Unknown" - a rep can
+  now tell "we found nothing" apart from "we found a nonprofit and
+  correctly deprioritized it". Confirmed via real data: 190 accounts now
+  carry this label, though ~180 of those were already correctly excluded
+  under the round-2 fixes (a labeling/data-quality win, not a new cost
+  reduction) - only ~10 were genuinely NEW exclusions this round. Verified
+  this distinction directly rather than assume it: all 190 show
+  `gate_decision == SKIP` and blank `workload_profile`, confirming none of
+  them were ever going to reach the LLM regardless of the label.
+- `health & wellness` / `medical, dental` - generic corporate benefits-page
+  boilerplate, same danger class as `careers`.
+
+**A real regression caught and reverted before shipping** (not after): an
+early version of the institution-exclusion fix applied
+`PROVIDER_EXCLUDE_KEYWORDS` to web-search snippet text broadly, which broke
+a genuine match (EqualizeRCM Services, whose snippet legitimately says
+"community health providers, hospitals" - its CLIENTS, not itself). Found
+via the standard test suite before it ever reached a real account.
+
+**A real duplicate-dict-key bug caught and fixed**: an edit accidentally
+created two `"energy"` keys in the same dict literal - Python silently lets
+the later one win, which would have discarded the `directed energy`
+exclusion entirely with no error. Caught via a direct `grep -c` check
+before shipping, not assumed fixed.
+
+**Known, deliberately NOT fixed - documented directly in
+`company_intelligence.py`'s own comments, not just here:**
+- **"Vendor serves an industry" mismatch** (general case) - a company that
+  SELLS TO an industry (GE Smallworld selling GIS software to utilities,
+  ParkOps serving retail/hospitality clients, Affinity Solutions serving
+  insurance companies) gets tagged as if it WERE that industry. A narrow,
+  evidenced fix exists for the Utilities-specific instance (a
+  third-person-possessive phrasing check: "a utility's electric, gas,
+  water networks"), but the same GE Smallworld sentence also lists
+  "telecom networks", which still incorrectly matches the separate Telecom
+  pattern - confirmed this is genuinely the same problem resurfacing
+  through a different pattern, not a new bug. Chasing this pattern-by-
+  pattern has real diminishing returns; a general rule risks blocking
+  genuine matches (EqualizeRCM genuinely says "community health
+  providers" and must keep matching Healthcare). Not generalized until
+  more real examples are gathered.
+- **`care` as a bare keyword, structurally** - beyond the `careers`
+  fix, real data keeps surfacing new "___care" compounds across unrelated
+  industries (Massey Services/pest control matched via "lawn care",
+  Cambridge Air Solutions/HVAC matched via "Client Care"). This deserves
+  the same co-occurrence treatment `power` got (require a real healthcare-
+  specific term to co-occur), not more one-off exclusions - identified,
+  not yet built.
+- **Exact-phrasing gaps in the institution/nonprofit exclusion lists** -
+  "Goodwill Industries" (a well-known specific brand), "human-rights
+  organization" (Heartland Alliance), reversed county-name phrasing
+  ("Hamilton County" vs. the existing "county of" pattern), and
+  "professional services firm"/"Global Consulting" (Huron Consulting Group
+  vs. the existing "consulting firm" exact phrase) - same lesson as
+  Kaufman Hall earlier: these lists need real phrasing variants, not just
+  the concept once. Identified, not yet built.
+- **Ambiguous-name search collisions** (Zapata AI/Quantum vs. an unrelated
+  real estate developer sharing the surname; "Venus" the account vs. an
+  unrelated auto-transport company in the town of Venus, FL) - genuine
+  search-content ambiguity for common names, not a keyword-matching bug.
+  No exclusion list fixes this; accepted as a residual risk of using
+  web-search grounding at all.
+
+**Infrastructure fix alongside this work**: `SERPER_API_KEY` had no
+persistence mechanism at all (confirmed: caused two separate silent
+all-`None` search failures this session, once costing a real, if small,
+redundant spend). Added `python-dotenv` + a real `.env` file, wired
+`load_dotenv()` into every script that needs it, verified with a genuine
+fresh-shell test (`env -u SERPER_API_KEY python3 -c "..."`) that it works
+without any variable manually exported. `.env` added to `.gitignore`
+BEFORE the file was ever created, not after - same discipline as the
+`Closed Won` lesson. Also fixed a separate, real gap: `requests` was used
+directly by `web_search_client.py` but never declared in
+`requirements.txt` - would have caused `ModuleNotFoundError` on a
+genuinely fresh venv.
+
+## The LLM-stage grounding bug - a real, more serious finding than the
+## classification false-positives above (2026-07-30/31)
+
+**Discovered while reviewing Tier 2 accounts for web-verification status**:
+a real production run showed `llm_used_web_search = False` for 100% of
+1,524 newly-qualified accounts - not a partial miss, a complete, silent
+failure. Root cause chased through two wrong hypotheses before the real
+one: first suspected a Serper rate-limit during the heavy concurrent
+run (plausible, but a live test immediately after the run succeeded on
+the first try, ruling this out). The actual bug: `location = row.get(
+"Account State/Province (text only)", "")` in
+`modules/sales_intelligence_pipeline.py` - the real column is
+`"Account State/Province"`, no `"(text only)"` suffix. Since the key
+never existed, `row.get()` silently returned `""` every time, `if
+location:` was never true, and `search_company()` (the LIVE, per-account
+search - a completely different thing from the classification-stage
+cache) was never called at all, for anyone, through this code path.
+
+**Fixed with a one-line change**, then deliberately NOT trusted on faith:
+verified with 10 real, live, diverse Bedrock+Serper calls (10/10 success)
+before spending real money re-running the affected batch. A retry/backoff
+mechanism was also added to `modules/web_search_client.py` around this
+same time (transient rate-limit/timeout handling) - a real, separate
+hardening, though it turned out NOT to be the actual root cause of this
+specific incident.
+
+**New, permanent safeguard**: `main.py` now prints an automatic summary
+at the end of every run - `"Web search grounding: X / Y validated
+accounts used a real search result"` - with a built-in warning if the
+rate drops below 10%. This is the exact signal that would have caught
+this bug immediately, instead of requiring a multi-step manual
+investigation (spot-checks, a live re-test, tracing the actual code)
+well after the run had already finished and money had already been spent.
+
+**Real financial nuance worth remembering**: re-grounding an
+already-validated account costs real money again. The fix targeted
+specifically the accounts where it mattered most - those the model
+couldn't already recognize from memory alone (571, later refined to 528
+using fresher data) - not the full population, since accounts the model
+already recognized correctly wouldn't meaningfully benefit from
+grounding. Confirmed via real numbers before deciding: 953/1,524 already
+showed `llm_recognition_verified = True` (grounding wouldn't change
+much); 571 showed `False` (grounding could genuinely help) - that 571
+was the real, targeted spend, not the full 1,524.
+
+## business_model was silently broken for ~all pattern-matched accounts
+
+**Found while investigating "why does business model say Unknown for
+most 6k-sheet accounts"**: confirmed via direct inspection of
+`data/company_patterns.json` that all 12 business_patterns entries were
+completely missing a `business_model` field - meaning ANY account
+classified by pattern (whether by name or by the web-search fallback)
+always produced `business_model = "Unknown"`, even with a perfectly real
+`industry` match sitting right next to it. This also silently meant 3 of
+5 AI-capability messages in `modules/account_enrichment.py`
+("Integration Platform", "HR SaaS", "Travel Technology") were reachable
+only through a handful of individually-curated `known_companies` entries
+(5 total), never through the broader pattern-matching path most accounts
+actually go through.
+
+**Fixed**: populated all 12 patterns with real business_model values,
+mapping to existing messaging where a sensible match already existed
+(API Platform → "Integration Platform", reusing/extending messaging that
+previously only reached one company) and writing new AI-initiatives
+messaging for the other 9 categories. Confirmed via real, fresh data on
+Enterprise East: Unknown rate dropped from 97.0% to 57.4% (2,857
+accounts gained a real value that had nothing before) - verified via a
+small, deliberately-built 100-account stratified test set BEFORE
+touching the full dataset, then confirmed again on the real, full re-run.
+
+**Real, still-open limitation, distinct from the above**: a separate
+~2,550-account population where `industry_classifier.py` succeeded
+independently (via its own broader keyword system) but
+`company_intelligence.py`'s own pattern-matching found nothing at all -
+for these, `business_model` has no equivalent fallback the way
+`industry` does (industry has a `.where(!= "Unknown", ...)` safety net;
+business_model does not, yet). Identified, not yet built.
+
+## Real dataset relationship discovered - the two account lists overlap
+## almost completely
+
+Confirmed via direct set-intersection of both raw input files: of
+Enterprise East's 6,690 unique account names, 6,680 (99.85%) also appear
+in the original 9,758-account file. Enterprise East is effectively a
+filtered subset of the larger file, not an independent territory list -
+only 10 accounts exist in Enterprise East alone. This is why the shared,
+global Serper cache (not per-dataset) paid off concretely: running
+`serper_enrichment_pass.py` against the original file found 6,690
+already-cached (zero new cost) and only ~3,064 genuinely new searches
+needed.
+
+## `--input` CLI flag added to all 6 pipeline scripts
+
+Replaced manual text-patching of `INPUT_FILE`/`OUTPUT_FILE` constants
+(the workflow used earlier this session) with real `argparse` support:
+`main.py`, `precursor_review.py`, `serper_enrichment_pass.py`,
+`build_ae_call_list.py`, `classification_prepass.py`, and
+`rerun_qualified_with_search.py` all now accept `--input <path>`.
+`main.py`'s `OUTPUT_FILE` auto-derives from the input filename's stem
+(confirmed backward-compatible: `report1784905185024.xls` still produces
+`report1784905185024_Scored.xlsx`, matching the original historical
+naming exactly). The shared Serper cache and the LLM validation
+checkpoint deliberately stay as fixed, global filenames, NOT
+parameterized per input - both are meant to be reused across every
+dataset, not reset per run.
+
+**One real naming consequence to remember**: since `main.py` now derives
+its output name from the input filename automatically,
+`build_ae_call_list.py`'s `--input` must be updated to match whatever
+`main.py` actually produced, rather than assuming a fixed historical
+filename.
+
+## Ownership/rebrand signal detection - new, free capability
+
+Built after noticing genuine rebrand/acquisition language showing up
+repeatedly in real cached search snippets during spot-checks (Cardtronics
+→ NCR Atleos, PrimePay → CoAd, GroupM → WPP Media, and others found
+across both datasets). Measured the real scale BEFORE building anything,
+per the standing "don't chase 4-5, only chase real scale" rule: 511 of
+9,750 cached accounts (5.2%) already contain a real signal phrase - well
+above the threshold worth the effort.
+
+New standalone module (`modules/ownership_signal_detector.py`, kept
+separate from the already-large `company_intelligence.py`) does a free,
+deterministic text-scan over data already paid for by the Serper cache -
+no new search, no new LLM cost. Wired into `main.py` right after the
+grounding merge, and surfaced on the actual Call Brief in
+`build_ae_call_list.py`: a title-row marker ("🏢 Possible Ownership
+Change") plus full detail in the Technical Opportunity Canvas section.
+Confirmed on a real 100-account test: 5/5 flagged accounts were genuine,
+correct signals, zero false positives.
+
+## Second dataset audit (original 9,758-account file) - 2 more real,
+## narrow collisions found and fixed
+
+Running the same, already-proven classification code against a second,
+different dataset surfaced dataset-specific false positives the first
+dataset's audits never hit:
+- `"retail banking"` (a standard finance term for consumer banking)
+  colliding with the Retail pattern's `"retail"` keyword - GFNorte (a
+  real Mexican bank) was misclassified as Retail.
+- `"merchant bar"` (a real structural-steel product shape) colliding
+  with FinTech's `"merchant"` (payment-processing) keyword - Gerdau
+  S.A. (a real global steel producer) was misclassified as FinTech.
+
+Both fixed as narrow, evidenced exclusions, same pattern as earlier
+fixes. Also, `"care"` colliding with unrelated "___care" compounds
+(confirmed via this second audit: Philadelphia Eagles/"NovaCare Way",
+Cambridge Air Solutions/"Client Care", Massey Services/"lawn care") was
+finally given the same co-occurrence treatment `"power"` already had,
+rather than another one-off exclusion - `"care"` now requires one of its
+own pattern's sibling keywords (`health`/`medical`/`patient`) to
+co-occur before counting alone. Two smaller, measured-and-rejected
+findings from this same audit (a `"cardio"`/FinTech collision at 8
+accounts, a fitness-marketing/`"health"` collision at 11 accounts) were
+deliberately NOT fixed - both fall well under the standing 100-account
+threshold for whether a fix is worth the effort.
+
+## Architecture diagrams rebuilt (docs/sip_architecture.html /
+## .mermaid)
+
+Rebuilt from scratch to reflect the whole day's changes (universal
+grounding, the two-searches distinction, the location bug, business_model
+fix, ownership detection) - then rebuilt AGAIN, deliberately stripped of
+all "found today"/dated/session-narrative framing per explicit request,
+since the intended audience (SEs presenting to prospects/partners) needs
+a timeless explanation of what the system does and when each part runs,
+not a changelog. The two-searches distinction (cached/classification vs.
+live/per-account) is kept as the single most emphasized point in both
+versions, since confusing the two is the easiest way to misexplain this
+architecture out loud - confirmed firsthand this session, when
+explaining it conversationally took several attempts before landing
+clearly, eventually settled by looking at the real code's line numbers
+together rather than more prose description.
+
 ## Working style — what actually works now
 
 - **Discuss before building** when a request is genuinely ambiguous or
@@ -281,3 +597,24 @@
   pale yellow/soft coral over saturated yellow/dark red). Default toward
   this on any future fill-color or conditional-formatting work rather than
   waiting to be asked each time.
+- **A file's modification timestamp is only meaningful next to the actual
+  current time** - checked `date` directly against a file's `ls -la`
+  output before trusting whether it was fresh or stale (2026-07-30), since
+  eyeballing a bare timestamp without a reference point led to real
+  confusion mid-run.
+- **When a long-running script writes its final output only at the very
+  end, checking that output file mid-run will always look stale** - not a
+  bug. Check a script's own incremental checkpoint file instead for live
+  progress (confirmed on `main.py`: the final `enterprise_east_Scored.xlsx`
+  only updates once everything completes; `output/llm_validation_results.xlsx`
+  updates every 25 accounts and is the real live-progress signal).
+- **After adding a new key to an existing Python dict literal, grep for
+  duplicates of that exact key before trusting it** - a duplicate key is
+  silently resolved (the later one wins, no error) and can invisibly
+  discard a working exclusion. Caught real via `grep -c '"energy":'`
+  before shipping, not assumed safe because the file compiled.
+- **A fresh test failure is worth checking for a test-fixture mistake
+  before assuming a code bug** - repeatedly found the *test* was flawed
+  (an account name accidentally containing the very keyword being tested
+  for exclusion), not the code under test. Fix the fixture, re-run, only
+  conclude a real bug if it still fails with a properly isolated case.
