@@ -80,7 +80,7 @@ def get_location(row):
     disambiguation benefit, confirmed necessary for common names
     like "United Community Bank" returning an unrelated real bank.
     """
-    value = row.get("Account State/Province", None)
+    value = row.get("Account State/Province", None) or row.get("Account State/Province (text only)", None)
     if value is None or (isinstance(value, float) and pd.isna(value)):
         return None
     return str(value).strip() or None
