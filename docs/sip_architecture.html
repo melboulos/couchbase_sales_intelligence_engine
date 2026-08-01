@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Sales Intelligence Platform — Architecture</title>
+<style>
+  :root {
+    --navy: #1F3864;
+    --blue: #2F5496;
+    --ink: #1a1a1a;
+    --gray-text: #5b5f66;
+    --gray-bg: #F6F7F9;
+    --gray-border: #E2E5EA;
+    --amber: #C77D00;
+    --amber-bg: #FDF3E0;
+    --amber-border: #EAC58C;
+    --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: var(--sans); color: var(--ink); background: #fff; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+
+  .banner {
+    background: linear-gradient(160deg, var(--navy) 0%, var(--blue) 100%);
+    color: #fff; padding: 46px 52px 38px; position: relative; overflow: hidden;
+  }
+  .banner::after {
+    content: ""; position: absolute; right: -60px; top: -60px; width: 260px; height: 260px;
+    border-radius: 50%; background: rgba(255,255,255,0.06);
+  }
+  .banner h1 { margin: 0 0 8px; font-size: 27px; font-weight: 800; letter-spacing: -0.015em; position: relative; }
+  .banner p { margin: 0; opacity: 0.82; font-size: 14.5px; max-width: 700px; position: relative; }
+
+  .keynote {
+    background: var(--amber-bg); border-bottom: 1px solid var(--amber-border);
+    padding: 15px 52px; font-size: 13.5px; color: #5c4300;
+  }
+  .keynote b { color: #4a3600; }
+
+  .legend {
+    display: flex; gap: 24px; flex-wrap: wrap; padding: 13px 52px;
+    background: var(--gray-bg); border-bottom: 1px solid var(--gray-border); font-size: 12.5px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 7px; color: var(--gray-text); }
+  .swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+
+  .wrap { max-width: 980px; margin: 0 auto; padding: 44px 52px 100px; }
+
+  h2.section-title {
+    font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--gray-text);
+    margin: 56px 0 18px; padding-bottom: 9px; border-bottom: 1px solid var(--gray-border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2.section-title:first-child { margin-top: 0; }
+  h2.section-title .stage-chip {
+    background: var(--navy); color: #fff; font-family: var(--mono); font-size: 10.5px;
+    padding: 2px 8px; border-radius: 4px; letter-spacing: 0;
+  }
+
+  .stage { position: relative; margin-bottom: 6px; padding-left: 4px; }
+
+  .card {
+    background: #fff; border: 1px solid var(--gray-border); border-radius: 12px;
+    padding: 20px 24px; margin-bottom: 20px; transition: none;
+  }
+  .card-title { font-weight: 700; font-size: 15.5px; color: var(--navy); margin-bottom: 8px; letter-spacing: -0.01em; }
+  .filechain { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-family: var(--mono); font-size: 12px; margin-bottom: 12px; }
+  .file-badge { background: var(--gray-bg); border: 1px solid var(--gray-border); border-radius: 6px; padding: 4px 9px; white-space: nowrap; }
+  .file-badge.pipeline { color: var(--blue); }
+  .file-badge.module { color: var(--navy); font-weight: 600; border-color: #C7D4E8; }
+  .arrow { color: #b7bcc4; }
+  .desc { font-size: 13.5px; color: #333; }
+  .desc code { font-family: var(--mono); font-size: 12px; background: var(--gray-bg); padding: 1.5px 5px; border-radius: 4px; }
+  .desc + .desc { margin-top: 8px; }
+
+  .callout {
+    margin-top: 12px; border-radius: 8px; padding: 12px 16px; font-size: 12.5px;
+    background: var(--amber-bg); border: 1px solid var(--amber-border); border-left: 3px solid var(--amber); color: #5c4300;
+  }
+  .callout b { color: #4a3600; }
+  .callout.info { background: #EEF4FB; border-color: #C7D9EE; border-left-color: var(--blue); color: #17456e; }
+  .callout.info b { color: #0d3f66; }
+
+  .numbers {
+    font-family: var(--mono); font-size: 11.5px; background: var(--gray-bg); border-radius: 8px;
+    padding: 12px 16px; margin-top: 12px; color: #40454d; white-space: pre-wrap; border: 1px solid var(--gray-border);
+  }
+
+  .split-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+  .split-box { border-radius: 10px; padding: 16px; font-size: 12.5px; }
+  .split-box.cached { background: #F1F7EE; border: 1px solid #CFE5C4; }
+  .split-box.live { background: #FCF0EF; border: 1px solid #F0C2BE; }
+  .split-box h4 { margin: 0 0 8px; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .split-box.cached h4 { color: #2e6b1f; }
+  .split-box.live h4 { color: #a13c34; }
+  .split-box .row { margin-bottom: 6px; }
+  .split-box .row b { display: inline-block; min-width: 62px; }
+
+  .sidebox-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .sidebox { background: var(--gray-bg); border: 1px solid var(--gray-border); border-radius: 10px; padding: 15px 17px; font-size: 12.5px; }
+  .sidebox .fname { font-weight: 700; color: var(--navy); display: block; margin-bottom: 5px; font-size: 13px; }
+  .sidebox p { margin: 0; color: #444; }
+
+  .flow-steps { margin: 10px 0 0; padding-left: 20px; font-size: 12.5px; }
+  .flow-steps li { margin-bottom: 7px; }
+  .flow-steps li code { font-family: var(--mono); font-size: 11.5px; background: var(--gray-bg); padding: 1.5px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<div class="banner">
+  <h1>Sales Intelligence Platform — Architecture</h1>
+  <p>What each stage does, what file it lives in, and when it gets called — traced from real source code, in the order the pipeline actually runs.</p>
+</div>
+
+<div class="keynote">
+  <b>Worth emphasizing when presenting this:</b> there are two genuinely different web searches in this system, serving two different purposes — one cached and free (used for classification), one live and per-account (used to ground the AI's actual write-up). See Stage 5.
+</div>
+
+<div class="legend">
+  <div class="legend-item"><span class="swatch" style="background:var(--blue)"></span> Core pipeline stage</div>
+  <div class="legend-item"><span class="swatch" style="background:#EAC58C"></span> Known, documented limitation</div>
+</div>
+
+<div class="wrap">
+
+  <h2 class="section-title"><span class="stage-chip">0</span> Universal grounding pre-pass</h2>
+  <div class="card">
+    <div class="card-title">Give every account a fair shot at real signal, before scoring begins</div>
+    <div class="filechain"><span class="file-badge">serper_enrichment_pass.py</span></div>
+    <div class="desc">Runs a real web search for <i>every</i> account in the list, not just ones whose name already hints at what they do. Results are saved to a single shared cache file, keyed by account name — reused across any account list this pipeline ever processes, not tied to one dataset.</div>
+    <div class="desc">Run this once, on its own, before <code>main.py</code>. It's checkpointed and resumable — running it again against the same list costs nothing for accounts already cached; only new accounts get searched.</div>
+  </div>
+
+  <h2 class="section-title"><span class="stage-chip">1</span> Load and grounding merge</h2>
+  <div class="card">
+    <div class="card-title"><code>main.py</code> starts here</div>
+    <div class="filechain">
+      <span class="file-badge pipeline">pipeline/loader.py</span><span class="arrow">→</span><span class="file-badge">load_accounts()</span>
+    </div>
+    <div class="desc">Loads the raw account list (auto-detects a common Salesforce export quirk where a <code>.xls</code> file is actually an HTML table internally). Immediately after loading, it reads Stage 0's cache file — once, here, before anything else runs — and attaches each account's saved search result as a new column. If Stage 0 was never run, this step degrades gracefully to an empty column.</div>
+  </div>
+
+  <h2 class="section-title"><span class="stage-chip">2</span> Classification — name first, search as a fallback</h2>
+  <div class="card">
+    <div class="card-title">Every account gets two chances to be classified correctly</div>
+    <div class="filechain">
+      <span class="file-badge module">industry_classifier.py</span> +
+      <span class="file-badge module">company_intelligence.py</span>
+    </div>
+    <div class="desc"><b>First attempt:</b> match the account's own name against a curated list of known companies and industry keyword patterns. Fast and reliable, but blind to any company whose name doesn't reveal what it does.</div>
+    <div class="desc"><b>Second attempt, only if the first found nothing:</b> fall back to Stage 0's cached search result and try the same keyword matching against that text instead. A real name-match is never overridden by this fallback — the fallback only ever fills in where the first attempt drew a blank.</div>
+    <div class="callout">
+      <b>Known limitation:</b> a company that <i>sells to</i> an industry (say, software sold to utility companies) can sometimes get classified as if it <i>were</i> that industry, since the same keywords show up either way. This is judged case-by-case rather than solved with one general rule, since a broad fix risks blocking genuinely correct matches.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Non-Profit / Charity classification</div>
+    <div class="desc">Accounts that match nonprofit/charity language get their own explicit category, rather than falling into a generic "unclassified" bucket — so it's clear at a glance that the account was reviewed and genuinely is a nonprofit, not simply unprocessed.</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Business model</div>
+    <div class="desc">Alongside industry, each matched pattern also carries a business model label (FinTech, Healthcare Technology, Retail, Utility, and so on), which in turn drives category-specific AI-opportunity messaging later in the account's writeup.</div>
+    <div class="callout">
+      <b>Known limitation:</b> business model currently only gets set when the pattern-matching step itself finds a match. If an account's industry comes from some other signal instead, business model can be left blank even though industry is populated — industry has a broader safety net than business model does today.
+    </div>
+  </div>
+
+  <h2 class="section-title"><span class="stage-chip">3</span> Ownership / rebrand signal detection</h2>
+  <div class="card">
+    <div class="card-title">A free, deterministic check — no AI, no new search</div>
+    <div class="filechain"><span class="file-badge">modules/ownership_signal_detector.py</span></div>
+    <div class="desc">Scans the same cached search text from Stage 0 for plain-language signals of a recent acquisition or rebrand — phrases like "is now," "acquired by," "now part of." This is pure text matching against data already retrieved, so it costs nothing extra to run.</div>
+    <div class="desc">The idea: a rep calling a company by an outdated name, or pitching a team that no longer holds purchasing authority after an acquisition, is an avoidable mistake. Roughly one in twenty accounts shows a real signal here.</div>
+  </div>
+
+  <h2 class="section-title"><span class="stage-chip">4</span> Scoring, explanation, and the gate</h2>
+  <div class="card">
+    <div class="card-title">Every account gets a number; only the strongest move forward</div>
+    <div class="filechain">
+      <span class="file-badge module">scoring_engine.py</span> →
+      <span class="file-badge module">opportunity_explainer.py</span> →
+      <span class="file-badge module">deterministic_gate.py</span>
+    </div>
+    <div class="desc">The Couchbase Opportunity Index combines five weighted signals: workload fit, database opportunity, real-time requirement, technical environment, and company context. A separate gate then decides which accounts are worth the expensive step ahead — an account needs both a real workload signal <i>and</i> a score above the threshold to qualify.</div>
+    <div class="desc">Everything below this line only runs for accounts that clear the gate. Everything else is skipped, at zero further cost.</div>
+  </div>
+
+  <h2 class="section-title"><span class="stage-chip">5</span> AI-generated sales intelligence</h2>
+  <div class="card">
+    <div class="card-title">The two searches, side by side</div>
+    <div class="desc">Stage 1's cache and this stage's search are two separate things, serving two separate purposes — worth being precise about which is which when explaining this system.</div>
+    <div class="split-compare">
+      <div class="split-box cached">
+        <h4>Stage 1 — cached search</h4>
+        <div class="row"><b>When:</b> read once, up front</div>
+        <div class="row"><b>Purpose:</b> classify industry / business model</div>
+        <div class="row"><b>Cost:</b> free — already retrieved, reused</div>
+        <div class="row"><b>Visibility:</b> never shown to the AI directly</div>
+      </div>
+      <div class="split-box live">
+        <h4>Stage 5 — live search</h4>
+        <div class="row"><b>When:</b> fresh, per qualifying account</div>
+        <div class="row"><b>Purpose:</b> ground this specific AI write-up</div>
+        <div class="row"><b>Cost:</b> real, ongoing, every run</div>
+        <div class="row"><b>Visibility:</b> fed directly into the prompt</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">What happens, per account, in order</div>
+    <div class="filechain">
+      <span class="file-badge module">sales_intelligence_pipeline.py</span> :: <span class="file-badge">validate_account()</span>
+    </div>
+    <ol class="flow-steps">
+      <li>The gate is checked again at the individual-account level (a safe, cheap re-confirmation).</li>
+      <li>The account's location is read, used to disambiguate common company names in the search that follows.</li>
+      <li>A live search runs for this specific account — includes automatic retry with backoff if a request is rate-limited or times out.</li>
+      <li>A prompt is built combining the account's data and the fresh search result. The prompt explicitly bans naming Couchbase or "database" in one specific field, and asks the model for an independent opportunity score computed <i>without</i> seeing the deterministic score above — so the two can later be compared.</li>
+      <li>The request goes to Bedrock (<code>meta.llama3-70b-instruct-v1:0</code>).</li>
+      <li>The response passes through roughly fifteen validation checks before being trusted: does the model genuinely recognize this company (not just guess from the industry label), is the score backed by real evidence rather than generic reasoning, does the stated scale match reality, is the company still operating, is any of this hallucinated.</li>
+    </ol>
+    <div class="callout info">
+      <b>Why this stage checks itself so heavily:</b> a model can sound confident while being wrong, especially about a company it doesn't actually know. These checks exist to catch that before it reaches a rep, not to slow things down for its own sake.
+    </div>
+  </div>
+
+  <h2 class="section-title"><span class="stage-chip">6</span> Merge and export</h2>
+  <div class="card">
+    <div class="card-title">Bringing it back together</div>
+    <div class="desc">Only accounts that passed validation get merged back into the full dataset, matched by account name. <span class="file-badge module" style="font-size:11px">intelligence_export_pipeline.py</span> then writes both a scored Excel file and a JSON file for the Streamlit dashboard.</div>
+    <div class="desc">At the end of every run, a summary line reports what fraction of validated accounts actually received a live search result — a quick, built-in health check on whether grounding is working as expected.</div>
+  </div>
+
+  <h2 class="section-title">What a rep sees on the call brief</h2>
+  <div class="sidebox-grid">
+    <div class="sidebox">
+      <span class="fname">🔍 Web-Verified</span>
+      <p>This account's story is grounded in a real, live Stage 5 search — not just the model's own memory.</p>
+    </div>
+    <div class="sidebox">
+      <span class="fname">⚠ Not Company-Verified</span>
+      <p>The model didn't genuinely recognize this specific company. The narrative is built on its assigned category — worth confirming before outreach.</p>
+    </div>
+    <div class="sidebox">
+      <span class="fname">🏢 Possible Ownership Change</span>
+      <p>Stage 3's free check found language suggesting a recent acquisition or rebrand — worth confirming current ownership before the call.</p>
+    </div>
+    <div class="sidebox">
+      <span class="fname">Independent score vs. deterministic score</span>
+      <p>Two separate scoring methods, computed without seeing each other. When they land close together, that agreement is a genuine signal, not a coincidence.</p>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
