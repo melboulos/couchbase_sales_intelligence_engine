@@ -618,3 +618,114 @@ together rather than more prose description.
   (an account name accidentally containing the very keyword being tested
   for exclusion), not the code under test. Fix the fixture, re-run, only
   conclude a real bug if it still fails with a properly isolated case.
+
+## Parking lot - real feedback received on the 9,758-account report,
+## prioritized but deliberately not started yet
+
+Real, substantive review feedback came in on the actual `AE_Call_List.xlsx`
+output (2026-08-01). Every specific, checkable factual claim in it was
+verified against real data and confirmed accurate before any of this was
+taken at face value: correlation between `overall_coi` and
+`llm_total_score` is genuinely 0.273 (matches the "~0.27" claim exactly);
+2,844 validated accounts, 2,836 unique names, exactly 8 duplicates;
+industry distribution (Healthcare 940, Logistics & Transportation 459,
+Retail 434, ...) matches exactly. Prioritized, in order, for whenever
+this gets picked back up:
+
+1. **8 duplicate accounts in Call Briefs** - quick, cheap, do first.
+   Likely explained by the already-documented Account Name-is-not-a-
+   unique-key limitation; probably a simple dedup-on-export fix. Not yet
+   confirmed or fixed.
+2. **Investigate the high-divergence COI/LLM cases directly** (e.g. COI
+   68 / LLM 87) before building anything else - informs whether the
+   0.27 correlation reflects healthy independent judgment or the LLM
+   rewarding a plausible-sounding story over real evidence. Note: a LOW
+   correlation isn't inherently a problem, since the two scores are
+   DELIBERATELY computed blind to each other on purpose (agreement is a
+   signal precisely because it isn't forced) - pushed back on the
+   feedback's framing that low correlation itself is the concern, rather
+   than assuming the critique is correct as stated.
+3. **Evidence / Inference / Hypothesis / Unknown labeling on the Call
+   Brief** - the one substantial idea here worth actually committing to
+   build soon. Moderate effort (schema + prompt + Call Brief formatting
+   changes), no new data sources needed, addresses a real, legitimate
+   gap: the Call Brief currently blends "what we know" with "what we're
+   guessing" without a clear line between them.
+4. **"NOW Score" (hiring, tech announcements, modernization, M&A,
+   funding, leadership changes) and the fully redesigned Call Brief
+   output format** - genuinely compelling direction, and today's
+   ownership/rebrand detector is already a small, real piece of exactly
+   this idea - but this is multi-week scope needing its own scoping
+   conversation (what signals are realistically detectable, what data
+   sources, how it combines with COI), not something to start without
+   a dedicated planning pass first.
+
+Separately, the "discovery questions are templated/generic" critique in
+this same feedback is NOT a new finding - already investigated directly
+(11 real accounts, multiple industries) and concluded the sentence
+STRUCTURE converges regardless of further prompt wording changes; more
+prompt engineering alone already proved insufficient. If revisited, the
+lever is likely more grounded, account-specific facts feeding the prompt
+(which today's grounding project was already building toward), not
+another round of prompt tweaking.
+
+## Critical checkpoint bug - the LLM validation checkpoint was silently
+## dropping other datasets on every run (2026-08-01)
+
+**Discovered while re-running Enterprise East** to pick up recent fixes:
+a run that should have cost close to nothing (checkpoint reuse) instead
+showed 1,928/1,928 accounts as freshly billed - a real, unexpected
+$5.39 charge. Root cause, confirmed by reading the actual code (not
+inferred from `grep` line numbers alone, which produced an incomplete,
+overconfident explanation at one point before the real code was checked):
+`pipeline/llm_validation_pipeline.py` correctly LOADS the full existing
+checkpoint (`existing_results`) to look up which of the CURRENT run's
+accounts are already validated - but the final write, and a SEPARATE
+periodic every-25-accounts checkpoint save, both only wrote back
+`kept_df + new_df` - i.e., only accounts belonging to the CURRENT
+dataset. Anything in the checkpoint from a DIFFERENT dataset was read in
+for the lookup but never carried through to the write, so it silently
+vanished.
+
+**Real, confirmed consequence**: switching between the two real datasets
+(Enterprise East and the original 9,758-account file) repeatedly caused
+each one to erase the other's validated history. Every switch back to a
+previously-run dataset forced a full, unnecessary re-validation - real,
+avoidable money spent purely because of this bug, more than once today.
+
+**Fixed in both places** (the periodic save required passing the full
+`existing_results` into `_run_llm_batch`, which didn't have access to it
+before): update the full existing checkpoint in place (matching by
+Account Name, updating existing rows, adding genuinely new ones) instead
+of overwriting the file with a subset. Verified with a synthetic
+simulation of the exact real scenario (two datasets, one shared account,
+two dataset-specific accounts) BEFORE touching the real file - confirmed
+both that Dataset A survives Dataset B's run, AND that re-running Dataset
+A afterward correctly shows 0 new cost while Dataset B's data also
+survives.
+
+**A real, separate data-loss incident happened alongside this
+investigation**: `output/report1784905185024_Scored.xlsx` (today's fully
+corrected version of the original file, with the location-bug fix and
+all classification fixes baked in) was lost - traced to a manual trash
+restore that brought back an OLDER file
+(`report1784905185024_Scored_FINAL.xlsx`, dated Jul 28) instead. Checked
+the Trash directly for a more recent copy before accepting the loss -
+confirmed genuinely gone, not recoverable. What WAS NOT lost and needed
+no rework: the Serper cache (`serper_search_cache.xlsx`, all 9,750
+accounts including the corrected location data), Enterprise East's own
+data, and every code fix (all safely committed to git throughout the
+day). Rebuilt via a fresh `main.py` run - which, thanks to the
+checkpoint fix landing just before this rebuild, correctly reused 1,926
+of 2,805 candidates for free (the real overlap with Enterprise East's
+already-validated accounts) rather than needing a full re-spend.
+
+**Working-style lesson from this specific exchange**: when asked to
+explain unfamiliar code, `grep` output showing WHERE a keyword appears
+is not the same as knowing what the code DOES - stated a specific,
+detailed technical explanation once based only on line-number
+groupings, which the user correctly caught and pushed back on. Only
+after being shown the real code between those lines was the explanation
+actually correct. Confirming certainty ("here's exactly what's
+happening") should be reserved for cases where the actual logic has
+been seen, not inferred from where a variable name happens to appear.
