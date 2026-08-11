@@ -151,7 +151,7 @@ MAX_WORKERS = 5
 CHECKPOINT_EVERY = 25
 
 
-def _run_llm_batch(rows, kept_df, existing_columns):
+def _run_llm_batch(rows, kept_df, existing_columns, full_existing_results):
     """
     Runs validate_account concurrently across `rows`, writing
     an incremental checkpoint (kept_df + completed results so
@@ -196,13 +196,29 @@ def _run_llm_batch(rows, kept_df, existing_columns):
 
                 partial_df = pd.DataFrame(new_results)
 
-                if kept_df is not None and len(kept_df) > 0:
-                    combined = pd.concat(
-                        [kept_df, partial_df], ignore_index=True
-                    )
-                else:
-                    combined = partial_df
+                # Same fix as the final write below: preserve every
+                # OTHER dataset's rows already in the checkpoint,
+                # not just this run's kept_df + partial results.
+                # Without this, a run interrupted mid-way (crash,
+                # dropped connection) would already have overwritten
+                # the checkpoint and dropped other datasets' history
+                # before ever reaching the final write.
+                combined = full_existing_results.drop_duplicates(
+                    subset="Account Name", keep="first"
+                ).set_index("Account Name", drop=False)
 
+                if len(partial_df) > 0:
+                    partial_indexed = partial_df.set_index(
+                        "Account Name", drop=False
+                    )
+                    combined.update(partial_indexed)
+                    brand_new = partial_indexed[
+                        ~partial_indexed.index.isin(combined.index)
+                    ]
+                    if len(brand_new) > 0:
+                        combined = pd.concat([combined, brand_new])
+
+                combined = combined.reset_index(drop=True)
                 combined = combined.loc[:, ~combined.columns.duplicated()]
                 combined.to_excel(LLM_RESULTS_FILE, index=False)
 
@@ -312,7 +328,7 @@ def validate_accounts(accounts):
         )
 
         new_results = _run_llm_batch(
-            rows_to_run, kept_df, existing_results.columns
+            rows_to_run, kept_df, existing_results.columns, existing_results
         )
 
         new_df = (
@@ -321,10 +337,47 @@ def validate_accounts(accounts):
             else pd.DataFrame(columns=existing_results.columns)
         )
 
-        llm_results = pd.concat(
-            [kept_df, new_df],
-            ignore_index=True
+        # =====================================================
+        # PRESERVE THE FULL CHECKPOINT ACROSS DATASETS
+        #
+        # Confirmed real bug (2026-08-01): writing just kept_df +
+        # new_df here silently DROPPED every account belonging to
+        # any OTHER dataset previously recorded in the checkpoint -
+        # existing_results was loaded and used for the lookup above,
+        # but never carried through to the final write. Switching
+        # between two datasets repeatedly caused each one to erase
+        # the other's validated history, forcing a full, expensive
+        # re-run each time - confirmed via a real $5.39 unnecessary
+        # spend on Enterprise East after running a different dataset
+        # in between.
+        #
+        # Fix: update the FULL existing_results (every dataset ever
+        # recorded) with this run's new results, rather than
+        # discarding everything outside this run's own account list.
+        # =====================================================
+
+        existing_results = existing_results.drop_duplicates(
+            subset="Account Name", keep="first"
         )
+
+        existing_indexed = existing_results.set_index(
+            "Account Name", drop=False
+        )
+        new_indexed = new_df.set_index(
+            "Account Name", drop=False
+        ) if len(new_df) > 0 else new_df
+
+        if len(new_indexed) > 0:
+            existing_indexed.update(new_indexed)
+            brand_new_names = new_indexed[
+                ~new_indexed.index.isin(existing_indexed.index)
+            ]
+            if len(brand_new_names) > 0:
+                existing_indexed = pd.concat(
+                    [existing_indexed, brand_new_names]
+                )
+
+        llm_results = existing_indexed.reset_index(drop=True)
 
         llm_results = llm_results.loc[
             :,
