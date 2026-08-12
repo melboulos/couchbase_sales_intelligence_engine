@@ -171,6 +171,43 @@ SMALL_SCALE_CEILINGS = {
 }
 
 
+# Confirmed real bug (2026-08-11): both dollar-magnitude patterns
+# above have an OPTIONAL dollar sign ("\$?"), or in the bare
+# pattern's case no dollar signal at all - meaning ANY large number
+# followed by "billion"/"million"/etc. was accepted as a dollar
+# figure, regardless of what it actually measured. Confirmed via
+# real production data: TuneCore's fact ("distributed over 10
+# billion TRACKS") triggered the LARGE_SCALE_FLOORS override despite
+# containing no dollar figure at all - and the bare pattern's own
+# original justifying comment cited "over a billion users" as an
+# example to catch, which is the exact same class of error, just
+# never noticed at the time. Five unrelated real companies (PVH,
+# TuneCore, Hess Midstream, PowerReviews, Tradeweb) were found to
+# share an identical llm_total_score of 87 as a direct, confirmed
+# result of this bug - not independent model reasoning, a fixed
+# code override (35+27+25=87) triggering on non-dollar evidence.
+#
+# Fix: require a literal "$" OR a real dollar-context word within a
+# nearby window, for BOTH patterns - preserves every documented
+# genuine case (UCB's "$28.2 billion in assets", Trumid's "a
+# trillion dollars in trade volume") while rejecting bare,
+# contextless large numbers.
+DOLLAR_CONTEXT_WORDS = [
+    "dollar", "dollars", "usd", "revenue", "valuation", "valued",
+    "assets", "funding", "raised", "market cap", "worth", "sales",
+    "trade volume", "trading volume", "aum",
+]
+
+
+def _has_dollar_context(text, start, end, window=40):
+    context_start = max(0, start - window)
+    context_end = min(len(text), end + window)
+    context = text[context_start:context_end].lower()
+    if '$' in context:
+        return True
+    return any(word in context for word in DOLLAR_CONTEXT_WORDS)
+
+
 def extract_dollar_magnitude(text):
     """
     Only dollar-figure based magnitude - the ONLY evidence type
@@ -180,18 +217,31 @@ def extract_dollar_magnitude(text):
     which correlates with real data processing). Employee count
     does not reliably correlate with this - see
     extract_employee_count below.
+
+    Requires a real dollar-sign or dollar-context word near the
+    match (see _has_dollar_context) - a bare "10 billion" with no
+    dollar signal anywhere nearby is NOT treated as a dollar figure,
+    since it could just as easily be a track count, a user count, or
+    anything else (confirmed real false positive: TuneCore's "10
+    billion tracks").
     """
     if not isinstance(text, str):
         return None
 
     magnitudes = []
-    for number_str, unit in SCALE_DOLLAR_PATTERN.findall(text):
+    for match in SCALE_DOLLAR_PATTERN.finditer(text):
+        number_str, unit = match.group(1), match.group(2)
+        if not _has_dollar_context(text, match.start(), match.end()):
+            continue
         try:
             magnitudes.append(float(number_str.replace(',', '')) * DOLLAR_MULTIPLIERS[unit.lower()])
         except ValueError:
             continue
 
-    for unit in SCALE_DOLLAR_BARE_PATTERN.findall(text):
+    for match in SCALE_DOLLAR_BARE_PATTERN.finditer(text):
+        unit = match.group(1)
+        if not _has_dollar_context(text, match.start(), match.end()):
+            continue
         magnitudes.append(1.0 * DOLLAR_MULTIPLIERS[unit.lower()])
 
     return max(magnitudes) if magnitudes else None

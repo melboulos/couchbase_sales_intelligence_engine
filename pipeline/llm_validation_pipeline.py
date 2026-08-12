@@ -205,12 +205,12 @@ def _run_llm_batch(rows, kept_df, existing_columns, full_existing_results):
                 # before ever reaching the final write.
                 combined = full_existing_results.drop_duplicates(
                     subset="Account Name", keep="first"
-                ).set_index("Account Name", drop=False)
+                ).set_index("Account Name", drop=False).astype(object)
 
                 if len(partial_df) > 0:
                     partial_indexed = partial_df.set_index(
                         "Account Name", drop=False
-                    )
+                    ).astype(object)
                     combined.update(partial_indexed)
                     brand_new = partial_indexed[
                         ~partial_indexed.index.isin(combined.index)
@@ -362,10 +362,10 @@ def validate_accounts(accounts):
 
         existing_indexed = existing_results.set_index(
             "Account Name", drop=False
-        )
+        ).astype(object)
         new_indexed = new_df.set_index(
             "Account Name", drop=False
-        ) if len(new_df) > 0 else new_df
+        ).astype(object) if len(new_df) > 0 else new_df
 
         if len(new_indexed) > 0:
             existing_indexed.update(new_indexed)
