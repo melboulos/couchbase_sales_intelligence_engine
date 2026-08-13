@@ -349,7 +349,7 @@ checkpoint("About to create Overview sheet")
 
 ws_overview = wb.create_sheet("Overview")
 
-overview_headers = ["Account Name", "COI Score", "Priority Tier", "Industry", "Business Model", "Account Owner"]
+overview_headers = ["Account Name", "COI Score", "Priority Tier", "Industry", "Business Model", "Account Owner", "Account ID"]
 for col_idx, header in enumerate(overview_headers, start=1):
     cell = ws_overview.cell(row=1, column=col_idx)
     cell.value = header
@@ -367,7 +367,7 @@ ws_overview.auto_filter.ref = f"A1:{get_column_letter(len(overview_headers))}1"
 # university names are genuine long-tail outliers, not the norm; those
 # wrap to a second line below rather than forcing the column absurdly
 # wide for everyone else). Other columns widened proportionally.
-overview_widths = {"A": 34, "B": 15, "C": 25, "D": 27, "E": 27, "F": 23}
+overview_widths = {"A": 34, "B": 15, "C": 25, "D": 27, "E": 27, "F": 23, "G": 18}
 for col, width in overview_widths.items():
     ws_overview.column_dimensions[col].width = width
 
@@ -410,6 +410,7 @@ for i, row in call_list.iterrows():
     ws_overview.cell(row=excel_row, column=4, value=row.get("industry", "")).font = OVERVIEW_BODY_FONT
     ws_overview.cell(row=excel_row, column=5, value=row.get("business_model", "")).font = OVERVIEW_BODY_FONT
     ws_overview.cell(row=excel_row, column=6, value=row.get("Account Owner", "")).font = OVERVIEW_BODY_FONT
+    ws_overview.cell(row=excel_row, column=7, value=row.get("CB Account Number", "")).font = OVERVIEW_BODY_FONT
     for col_idx in range(2, 7):
         cell = ws_overview.cell(row=excel_row, column=col_idx)
         cell.alignment = CENTER
