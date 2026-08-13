@@ -53,4 +53,21 @@ def load_accounts(input_file):
         f"Loaded {len(accounts)} accounts\n"
     )
 
+    # Account ID (CB Account Number) is required by a downstream
+    # application that joins against this pipeline's output - not
+    # every historical export has included it (confirmed: the
+    # original report1784905185024.xls file has no ID column at
+    # all), so this warns loudly rather than failing the load
+    # outright, to avoid breaking existing workflows for files that
+    # predate this requirement.
+    if "CB Account Number" not in accounts.columns:
+        print(
+            "Note: no 'CB Account Number' column found in this file "
+            "- expected for prospect lists that don't have an "
+            "assigned account ID yet. The Account ID column in the "
+            "final report will be blank for every account in this "
+            "run. If this WAS meant to be an existing-account list, "
+            "check that the export includes the ID column."
+        )
+
     return accounts
