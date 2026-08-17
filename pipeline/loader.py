@@ -70,4 +70,22 @@ def load_accounts(input_file):
             "check that the export includes the ID column."
         )
 
+    # Separate from CB Account Number, deliberately - confirmed
+    # (2026-08-17) these are NOT the same kind of identifier.
+    # CB Account Number could not be found anywhere in the actual
+    # Salesforce UI, meaning it's likely a different system's number,
+    # not a real SFDC join key. "ID (Long)" is Salesforce's own
+    # 18-character record ID - the format Salesforce itself
+    # recommends for any external system integration, specifically
+    # because the 15-character "Account ID" alone is case-sensitive
+    # and can cause mismatches in case-insensitive external systems.
+    if "ID (Long)" not in accounts.columns:
+        print(
+            "Note: no 'ID (Long)' column found in this file - this "
+            "is the safe, 18-character Salesforce record ID needed "
+            "if a downstream system will join back to Salesforce. "
+            "The Salesforce ID column in the final report will be "
+            "blank for every account in this run."
+        )
+
     return accounts
