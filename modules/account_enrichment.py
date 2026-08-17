@@ -57,6 +57,39 @@ def enrich_account(row):
     # =====================================================
 
 
+    # Real Employee/Revenue data (when the source file has it) takes
+    # priority over the industry-list/name-keyword heuristic below -
+    # it's a direct, authoritative signal instead of a guess. Falls
+    # back gracefully when a file doesn't have these columns, or a
+    # specific account's value is missing.
+    #
+    # Confirmed real gap (2026-08-17): Wawa ($18.9B revenue, 36,000
+    # employees) and Total Wine & More ($2.3B revenue, 4,000
+    # employees) both scored company_size="Unknown" under the OLD
+    # logic alone - Retail isn't in enterprise_industries, and
+    # neither name contains an enterprise_terms keyword - despite
+    # both being unambiguously enterprise-scale, with real revenue/
+    # employee data sitting unused in the same row the whole time.
+    LARGE_SCALE_REVENUE_THRESHOLD = 1_000_000_000  # $1B - matches the
+    # convention already used in modules/sales_intelligence_pipeline.py
+    LARGE_SCALE_EMPLOYEE_THRESHOLD = 1_000
+
+    revenue = row.get("Annual Revenue (converted)", row.get("Annual Revenue"))
+    employees = row.get("Employees")
+
+    try:
+        if revenue is not None and float(revenue) >= LARGE_SCALE_REVENUE_THRESHOLD:
+            company_size = "Enterprise"
+    except (ValueError, TypeError):
+        pass
+
+    try:
+        if employees is not None and float(employees) >= LARGE_SCALE_EMPLOYEE_THRESHOLD:
+            company_size = "Enterprise"
+    except (ValueError, TypeError):
+        pass
+
+
     enterprise_industries = [
         "Financial Services",
         "Healthcare",
