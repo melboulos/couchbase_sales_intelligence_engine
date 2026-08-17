@@ -450,6 +450,21 @@ def apply_workload_profile(result, data):
 
     profile = WORKLOAD_PROFILES.get(profile_key, {})
 
+    # Confirmed real bug (2026-08-17): apply_intelligence() previously
+    # tried to read "workloads" directly from the business_pattern
+    # dict (data), which never contains that key at all - the real
+    # workloads list only exists in WORKLOAD_PROFILES, keyed by
+    # workload_profile. This silently produced an empty list for
+    # EVERY account, every dataset, confirmed via real data: 28 of 29
+    # (96.5%) scored accounts with a real workload_profile set showed
+    # workloads=[] - which meant workload_text (built by joining this
+    # list) was always empty too, so the keyword-matching half of
+    # workload_fit_points (the single largest COI component, 40
+    # points) never had anything to match against, for anyone.
+    result["workloads"] = data.get(
+        "workloads", profile.get("workloads", [])
+    )
+
     result["database_intensity"] = data.get(
         "database_intensity", profile.get("database_intensity", 0)
     )
@@ -473,7 +488,6 @@ def apply_intelligence(result, data, reason):
     result["industry"] = data.get("industry", "Unknown")
     result["financial_segment"] = data.get("financial_segment", "Unknown")
     result["company_archetype"] = data.get("company_archetype", "Unknown")
-    result["workloads"] = data.get("workloads", [])
 
     apply_workload_profile(result, data)
 
