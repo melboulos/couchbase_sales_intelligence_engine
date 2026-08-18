@@ -89,4 +89,18 @@ def enrich_company_intelligence(accounts):
             ~has_real_industry, real_industry
         )
 
+    # Shorten verbose real Salesforce industry labels for display -
+    # the account manager's own detailed categorization is still
+    # useful, but "Customer Relationship Management (CRM) Software"
+    # is too long to read comfortably in a table column.
+    INDUSTRY_SHORTEN_MAP = {
+        "Customer Relationship Management (CRM) Software": "CRM Software",
+        "Credit Cards & Transaction Processing": "Payment Processing",
+        "Hospitals & Physicians Clinics": "Healthcare",
+        "Advertising & Marketing": "Advertising",
+        "Freight & Logistics Services": "Freight",
+        "Logistics & Transportation": "Logistics",
+    }
+    accounts["industry"] = accounts["industry"].replace(INDUSTRY_SHORTEN_MAP)
+
     return accounts

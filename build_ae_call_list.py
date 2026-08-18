@@ -13,8 +13,10 @@ import ast
 from openpyxl import load_workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
-from openpyxl.formatting.rule import ColorScaleRule
+from openpyxl.formatting.rule import ColorScaleRule, DataBarRule
 from openpyxl.chart import BarChart, PieChart, Reference
+from openpyxl.chart.data_source import StrRef
+from openpyxl.chart.data_source import StrRef
 from openpyxl.chart.text import RichText
 from openpyxl.drawing.text import CharacterProperties, Paragraph, ParagraphProperties
 from openpyxl.drawing.image import Image as XLImage
@@ -141,8 +143,8 @@ OVERVIEW_LINK_FONT = Font(name="Arial", size=15, color="0563C1", underline="sing
 # by Full Landscape's data rows, which weren't asked to change here -
 # bumping those shared constants directly would have resized Full
 # Landscape's table body as an unintended side effect.
-SIP_BODY_FONT = Font(name="Arial", size=16)
-SIP_LINK_FONT = Font(name="Arial", size=16, color="0563C1", underline="single")
+SIP_BODY_FONT = Font(name="Arial", size=15)
+SIP_LINK_FONT = Font(name="Arial", size=15, color="0563C1", underline="single")
 
 checkpoint("Styles defined")
 
@@ -282,7 +284,7 @@ for col_idx in range(1, n_cols + 1):
     cell.border = BOX_BORDER
 ws_summary.row_dimensions[header_row].height = 28
 
-summary_widths = {"A": 32, "B": 21, "C": 30, "D": 19, "E": 12, "F": 12, "G": 12, "H": 14, "I": 14, "J": 13}
+summary_widths = {"A": 42, "B": 21, "C": 30, "D": 19, "E": 12, "F": 12, "G": 12, "H": 14, "I": 14, "J": 13}
 for col, width in summary_widths.items():
     ws_summary.column_dimensions[col].width = width
 
@@ -305,9 +307,9 @@ if last_data_row > first_data_row:
     ws_summary.conditional_formatting.add(
         avg_coi_range,
         ColorScaleRule(
-            start_type="min", start_color="FFFFFF",
+            start_type="min", start_color="F2A9A5",
             mid_type="percentile", mid_value=50, mid_color="FFF3B0",
-            end_type="max", end_color="F2A9A5"
+            end_type="max", end_color="A9D18E"
         )
     )
     for col_letter in ["D", "E", "F", "G"]:
@@ -315,33 +317,46 @@ if last_data_row > first_data_row:
         ws_summary.conditional_formatting.add(
             cell_range,
             ColorScaleRule(
-                start_type="min", start_color="FFFFFF",
+                start_type="min", start_color="F2A9A5",
                 mid_type="percentile", mid_value=50, mid_color="FFF3B0",
-                end_type="max", end_color="F2A9A5"
+                end_type="max", end_color="A9D18E"
             )
         )
 
 checkpoint("Conditional formatting applied")
 
-chart = BarChart()
-chart.type = "bar"
+# A pie chart (2026-08-18), not a bar/column chart - both bar AND
+# column chart types had the same category-axis label rendering
+# issue that repeated fix attempts could not resolve. Pie charts use
+# a legend instead of a category axis to show names, and the legend
+# mechanism is already confirmed working elsewhere in this same
+# workbook (the Tier Distribution pie chart on the SIP tab).
+chart = PieChart()
 chart.title = "Tier 1 Strategic Accounts by Industry"
-chart.style = 10
-chart.y_axis.title = "Industry"
-chart.x_axis.title = "Tier 1 Account Count"
-chart.height = 10
-chart.width = 20
+chart.height = 18
+chart.width = 46
 
 data = Reference(ws_summary, min_col=5, max_col=5, min_row=header_row, max_row=last_data_row)
 categories = Reference(ws_summary, min_col=1, max_col=1, min_row=first_data_row, max_row=last_data_row)
 chart.add_data(data, titles_from_data=True)
 chart.set_categories(categories)
-chart.legend = None
+chart.series[0].cat.strRef = StrRef(f=str(categories))
+chart.series[0].cat.numRef = None
+
+# Larger title and legend text, plus extra height above so the
+# title has real breathing room from the pie itself.
+title_font = CharacterProperties(sz=1800, b=True)
+chart.title.tx.rich.p[0].pPr = ParagraphProperties(defRPr=title_font)
+for run in chart.title.tx.rich.p[0].r:
+    run.rPr = title_font
+
+legend_font = CharacterProperties(sz=1400)
+chart.legend.txPr = RichText(p=[Paragraph(pPr=ParagraphProperties(defRPr=legend_font), endParaRPr=legend_font)])
 
 chart_anchor_row = last_data_row + 3
 ws_summary.add_chart(chart, f"A{chart_anchor_row}")
 
-checkpoint("Chart added")
+checkpoint("Pie chart added")
 
 ws_summary.freeze_panes = f"A{first_data_row}"
 
@@ -355,7 +370,7 @@ for col_idx, header in enumerate(overview_headers, start=1):
     cell.value = header
     cell.font = OVERVIEW_HEADER_FONT
     cell.fill = HEADER_FILL
-    cell.alignment = Alignment(vertical="center")
+    cell.alignment = Alignment(horizontal="center", vertical="center")
 ws_overview.row_dimensions[1].height = 27
 
 # Lets reps filter/sort by owner, tier, industry, or COI directly in
@@ -367,7 +382,7 @@ ws_overview.auto_filter.ref = f"A1:{get_column_letter(len(overview_headers))}1"
 # university names are genuine long-tail outliers, not the norm; those
 # wrap to a second line below rather than forcing the column absurdly
 # wide for everyone else). Other columns widened proportionally.
-overview_widths = {"A": 34, "B": 20, "C": 20, "D": 25, "E": 27, "F": 23, "G": 18, "H": 20}
+overview_widths = {"A": 34, "B": 20, "C": 20, "D": 25, "E": 25, "F": 28, "G": 18, "H": 20}
 for col, width in overview_widths.items():
     ws_overview.column_dimensions[col].width = width
 
@@ -471,7 +486,10 @@ for i, row in call_list.iterrows():
     excel_row = i + 2
     ws_overview.row_dimensions[excel_row].height = 23
     ws_overview.cell(row=excel_row, column=2, value=row.get("overall_coi", "")).font = OVERVIEW_BODY_FONT
-    ws_overview.cell(row=excel_row, column=3, value=row.get("ICP Grade (Text)", "")).font = OVERVIEW_BODY_FONT
+    icp_cell = ws_overview.cell(row=excel_row, column=3, value=row.get("ICP Grade (Text)", ""))
+    icp_cell.font = OVERVIEW_BODY_FONT
+    if row.get("ICP Grade (Text)", "") == "Non-Target":
+        icp_cell.fill = PatternFill(start_color="FDE9D9", end_color="FDE9D9", fill_type="solid")
     tier_cell = ws_overview.cell(row=excel_row, column=4, value=row.get("priority_tier", ""))
     tier_cell.font = OVERVIEW_BODY_FONT
     tier_fill = TIER_FILLS.get(row.get("priority_tier", ""))
@@ -769,7 +787,33 @@ PERSONA_BY_WORKLOAD_PROFILE = {
 }
 
 
-def get_recommended_contact(workload_profile):
+# More specific than the broad workload-only mapping above - two
+# accounts can share a workload_profile while being genuinely
+# different businesses (StockX's resale/authentication concerns vs
+# AppCard's loyalty-program focus, despite both being
+# "payment_platform"). Checked first; falls back to the broader
+# mapping when a specific (workload, industry) pair isn't covered.
+PERSONA_BY_WORKLOAD_AND_INDUSTRY = {
+    ("payment_platform", "Auctions"): "VP of Trust & Safety / Head of Fraud Prevention",
+    ("payment_platform", "Advertising"): "VP of Product / Head of Loyalty Programs",
+    ("payment_platform", "Retail"): "VP of Commerce Technology / Head of POS Systems",
+    ("payment_platform", "Finance"): "Chief Risk Officer / Head of Payments Infrastructure",
+    ("payment_platform", "Financial Services"): "Chief Risk Officer / Head of Payments Infrastructure",
+    ("payment_platform", "Payment Processing"): "Chief Risk Officer / Head of Payments Infrastructure",
+    ("customer_application", "Healthcare"): "VP of Clinical Systems / Chief Medical Information Officer",
+    ("customer_application", "Healthcare Software"): "VP of Clinical Systems / Chief Medical Information Officer",
+    ("customer_application", "Retail"): "VP of Digital Commerce / Head of Customer Experience",
+    ("customer_application", "Manufacturing"): "VP of Field Service Technology",
+    ("retail_platform", "Grocery Retail"): "VP of Store Operations Technology",
+    ("retail_platform", "Freight"): "VP of Logistics Technology / Head of Fleet Systems",
+    ("retail_platform", "Manufacturing"): "VP of Manufacturing Systems / Head of Supply Chain Tech",
+}
+
+
+def get_recommended_contact(workload_profile, industry=None):
+    specific = PERSONA_BY_WORKLOAD_AND_INDUSTRY.get((workload_profile, industry))
+    if specific:
+        return specific
     return PERSONA_BY_WORKLOAD_PROFILE.get(workload_profile, "VP of Engineering")
 
 
@@ -819,7 +863,7 @@ def set_chart_fonts(chart, title_size=1600, axis_size=1200):
 
 top_20 = call_list.sort_values("overall_coi", ascending=False).head(20).copy()
 top_20["why_couchbase"] = top_20["couchbase_point_of_view"].apply(get_why_couchbase)
-top_20["recommended_contact"] = top_20["workload_profile"].apply(get_recommended_contact)
+top_20["recommended_contact"] = top_20.apply(lambda row: get_recommended_contact(row.get("workload_profile"), row.get("industry")), axis=1)
 
 driver_counts = call_list["workload_profile"].value_counts()
 driver_pcts = (driver_counts / len(call_list) * 100).round(1).head(6)
@@ -858,6 +902,20 @@ if os.path.exists(LOGO_FILE):
 else:
     checkpoint(f"WARNING: {LOGO_FILE} not found - splash row left blank, not failing the build")
 ws_top20.row_dimensions[1].height = 114
+
+# Score guide beside the logo - reuses the exact same text already
+# built for the Overview tab. Placed here too since this is the
+# first sheet a rep sees (Sales Intelligence Platform is inserted
+# at index 0), so the definitions are visible immediately rather
+# than only discoverable by scrolling to column J on Overview.
+# Confined to row 1 (matching the logo's own row) rather than
+# spanning into the title/subtitle rows below it.
+sip_combined_guide_text = "\n".join(["HOW TO READ THE SIP SCORES"] + SCORE_GUIDE_ROWS)
+sip_guide_cell = ws_top20.cell(row=1, column=5, value=sip_combined_guide_text)
+sip_guide_cell.font = SCORE_GUIDE_TEXT_FONT
+sip_guide_cell.alignment = Alignment(wrap_text=True, vertical="top")
+sip_guide_cell.border = Border(top=THIN_SIDE, bottom=THIN_SIDE, left=THIN_SIDE, right=THIN_SIDE)
+ws_top20.merge_cells(start_row=1, start_column=5, end_row=1, end_column=6)
 
 ws_top20.merge_cells("A2:F2")
 top20_title = ws_top20["A2"]
@@ -977,31 +1035,8 @@ tier_chart.width = 20
 set_chart_fonts(tier_chart)
 ws_top20.add_chart(tier_chart, f"C{tier_data_row}")
 
-charts_start_row = drivers_header_row + len(driver_pcts) + 3
-
-industry_data_row = charts_start_row
-ws_top20.cell(row=industry_data_row, column=1, value="Industry")
-ws_top20.cell(row=industry_data_row, column=2, value="Actionable Accounts")
-for i, (industry, count) in enumerate(industry_opportunity.items()):
-    ws_top20.cell(row=industry_data_row + 1 + i, column=1, value=industry)
-    ws_top20.cell(row=industry_data_row + 1 + i, column=2, value=int(count))
-
-industry_chart = BarChart()
-industry_chart.type = "bar"
-industry_chart.title = "Industry Opportunity Distribution"
-industry_chart_data = Reference(ws_top20, min_col=2, min_row=industry_data_row, max_row=industry_data_row + len(industry_opportunity))
-industry_chart_cats = Reference(ws_top20, min_col=1, min_row=industry_data_row + 1, max_row=industry_data_row + len(industry_opportunity))
-industry_chart.add_data(industry_chart_data, titles_from_data=True)
-industry_chart.set_categories(industry_chart_cats)
-industry_chart.height = 13
-industry_chart.width = 24
-set_chart_fonts(industry_chart)
-# Anchored below the pie chart (same column C, real gap beneath it)
-# rather than on top of its own "Industry / Actionable Accounts"
-# source table in columns A-B - that same-row/same-column anchor
-# was the actual cause of the two overlapping on screen.
-bar_chart_anchor_row = tier_data_row + 25
-ws_top20.add_chart(industry_chart, f"C{bar_chart_anchor_row}")
+# The "Industry / Actionable Accounts" table and its chart were
+# removed here on 2026-08-18 - flagged as unclear/unnecessary.
 
 checkpoint("Top 20 Accounts sheet complete")
 
