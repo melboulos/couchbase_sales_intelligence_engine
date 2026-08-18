@@ -396,6 +396,75 @@ TIER_FILLS = {
     "Tier 4 Monitor": PatternFill(start_color="D3D1C7", end_color="D3D1C7", fill_type="solid"),
 }
 
+# =====================================================
+# SCORE GUIDE - "HOW TO READ THE SIP SCORES"
+#
+# Real, plain-language definitions for ICP/COI/LLM/SIP, since a rep
+# opening this cold has no way to know these are four genuinely
+# different, deliberately independent signals (a company can be a
+# poor ICP fit with strong technical signals, or vice versa - this
+# isn't a scoring flaw, it's the design). Sits right below the
+# header row, above the real account data, using the SAME 15pt body
+# font as the rest of this sheet rather than introducing a new size.
+# =====================================================
+
+# Combined into ONE string per row (label + definition together),
+# not split across two separate cells - two adjacent bordered cells
+# each draw their own edge, creating an unwanted vertical divider
+# line right between the label and its definition. Merging the
+# whole row into a single cell removes that internal line entirely
+# while keeping every word of text.
+SCORE_GUIDE_ROWS = [
+    u"🎯 ICP — Is this the kind of company that fits Couchbase’s traditional Ideal Customer Profile?",
+    u"💡 COI — Does the account have characteristics associated with a Couchbase opportunity?",
+    u"🧠 LLM — Does the account exhibit technical/workload characteristics that suggest an opportunity?",
+    u"🚀 SIP — Combines these signals to identify accounts and formulate an initial sales hypothesis.",
+]
+
+SCORE_GUIDE_TITLE_FONT = Font(name="Arial", bold=True, size=15)
+SCORE_GUIDE_TEXT_FONT = Font(name="Arial", bold=True, size=15)
+
+THIN_SIDE = Side(style="thick")
+GUIDE_TOTAL_ROWS = 1 + len(SCORE_GUIDE_ROWS)  # title + 4 definitions
+
+GUIDE_START_COL = 10  # column J - sits beside the data, not above it
+GUIDE_END_COL = 24    # column X - widened so the longest definition doesn't cut off
+
+title_cell = ws_overview.cell(row=2, column=GUIDE_START_COL, value="HOW TO READ THE SIP SCORES")
+title_cell.font = SCORE_GUIDE_TITLE_FONT
+ws_overview.merge_cells(start_row=2, start_column=GUIDE_START_COL, end_row=2, end_column=GUIDE_END_COL)
+ws_overview.row_dimensions[2].height = 23
+
+for offset, guide_text in enumerate(SCORE_GUIDE_ROWS):
+    guide_row = 3 + offset
+    text_cell = ws_overview.cell(row=guide_row, column=GUIDE_START_COL, value=guide_text)
+    text_cell.font = SCORE_GUIDE_TEXT_FONT
+    ws_overview.merge_cells(start_row=guide_row, start_column=GUIDE_START_COL, end_row=guide_row, end_column=GUIDE_END_COL)
+    ws_overview.row_dimensions[guide_row].height = 23
+
+# Outer border on the WHOLE guide block (rows 2-6) - applied to every
+# column in every row, not just the first/last column, since a merged
+# row's border only actually renders where every underlying cell in
+# that row has the matching side set. Confirmed via isolated test
+# before shipping: setting the border on only the two end columns
+# left large, disconnected gaps and effectively no visible line at
+# all - this way top/bottom span the full row, left/right span the
+# full column, and no internal lines appear between rows 2-3, 3-4,
+# 4-5, or 5-6.
+for row_offset in range(GUIDE_TOTAL_ROWS):
+    guide_row = 2 + row_offset
+    is_top = row_offset == 0
+    is_bottom = row_offset == GUIDE_TOTAL_ROWS - 1
+    for col in range(GUIDE_START_COL, GUIDE_END_COL + 1):
+        is_left = col == GUIDE_START_COL
+        is_right = col == GUIDE_END_COL
+        ws_overview.cell(row=guide_row, column=col).border = Border(
+            top=THIN_SIDE if is_top else None,
+            bottom=THIN_SIDE if is_bottom else None,
+            left=THIN_SIDE if is_left else None,
+            right=THIN_SIDE if is_right else None,
+        )
+
 account_brief_rows = []
 
 for i, row in call_list.iterrows():
@@ -417,6 +486,18 @@ for i, row in call_list.iterrows():
         cell = ws_overview.cell(row=excel_row, column=col_idx)
         cell.alignment = CENTER
         cell.border = BOX_BORDER
+
+# Salesforce ID is needed for a downstream integration to join
+# against - a rep doesn't need to see it, so it's hidden (not
+# deleted) from view. Account ID is hidden too, but only when this
+# specific run has no real values for it at all (some files, like
+# ones without a CB Account Number column, would otherwise show an
+# entirely blank column with no value to a rep).
+ws_overview.column_dimensions["I"].hidden = True
+
+account_id_values = call_list.get("CB Account Number")
+if account_id_values is None or account_id_values.astype(str).isin(["", "nan", "None"]).all():
+    ws_overview.column_dimensions["H"].hidden = True
 
 ws_overview.freeze_panes = "A2"
 
