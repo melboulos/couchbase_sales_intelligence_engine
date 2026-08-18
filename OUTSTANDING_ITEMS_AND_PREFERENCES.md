@@ -832,3 +832,99 @@ Several real rounds of confusion this session traced back to exactly
 this - assuming a patch worked because later steps in the same
 command block completed without error, rather than directly
 confirming the specific new code is present.
+
+## Session continuation (2026-08-18, later) - real Industry override,
+## the media_platform under-scoring discovery, a new "card" false
+## positive, and a genuinely long chart-debugging saga
+
+**Business Model column removed from the Overview sheet.** Confirmed
+redundant with Industry for 7 of 12 patterns (identical string in
+both fields) - kept Industry, widened the ICP Grade/COI Score columns
+to compensate for lost visual space.
+
+**Real Salesforce Industry override added**, same "real data beats
+keyword guess" pattern as Employees/Revenue. Confirmed real
+misclassifications this fixes: Wegmans Food Markets (tagged
+"Healthcare" via a "healthier" substring match in ordinary grocery-
+store marketing copy - real Salesforce Industry: "Retail"), Envestnet
+and Interactive Brokers Group (also tagged "Healthcare", real
+Industry: "Financial Software"/"Finance"). Verbose real industry
+labels ("Customer Relationship Management (CRM) Software") also
+shortened for display via a small mapping dict, applied after the
+override.
+
+**Full Landscape chart - a long, genuinely difficult debugging
+saga.** The original native bar chart never rendered category labels
+correctly - traced through several real, confirmed causes (a numRef
+vs strRef mismatch, a missing tickLblPos setting on both axes) but
+each fix, though individually verified correct via direct XML
+inspection, didn't resolve the actual visual rendering. Tried, in
+order: horizontal bar (broken), Data Bars conditional formatting
+(worked but felt cluttered combined with existing color scales,
+rejected), vertical column chart (same broken-label problem,
+different orientation). What actually worked: a **pie chart** -
+pie charts use a legend rather than a category axis to show names,
+and the legend mechanism was already confirmed working elsewhere in
+the same workbook. Real lesson from this stretch: a "correct-looking"
+XML inspection is not the same as confirming the actual visual
+result - several rounds of back-and-forth happened specifically
+because a structurally-verified fix was presented with more
+confidence than warranted before the person had actually looked at
+the rendered file.
+
+**Contact recommendation logic improved** - previously a flat
+workload_profile-only lookup meant StockX (auctions/resale), AppCard
+(loyalty marketing), and Quantic (retail POS) all got the identical
+"Director of Payments / Head of Fraud Engineering" suggestion purely
+because they shared a workload_profile, despite being genuinely
+different businesses. Added a more specific (workload_profile,
+industry) lookup, checked first, falling back to the original
+broader mapping when no specific pair is covered.
+
+**The `media_platform` under-scoring discovery - found through the
+user's own careful analysis, not a routine audit.** The user
+independently noticed Tier 3 (Nurture) accounts showing a *higher*
+average LLM score than Tier 1 in a real 22-account sample, flagged
+Index Exchange (COI 42, LLM 75, a +33 gap) as the standout anomaly,
+and asked whether COI was undervaluing real-time media/ad-tech
+platforms. Verified directly: `media_platform`'s ratings are a flat
+"3, 3, 3" across every dimension, versus `payment_platform`'s "5, 5,
+5" - and checking every media_platform account across every dataset
+built this session (59 total) found 57 of 59 showed a positive
+COI-vs-LLM gap, several by +45. Index Exchange's real cached search
+text confirmed "global supply-side platform" - a genuine real-time ad
+exchange, not a generic media company. Fixed by adding a new, more
+specific pattern ("Ad Exchange / Real-Time Advertising Platform",
+keywords: supply-side platform, demand-side platform, ad exchange,
+programmatic advertising) checked before the generic Media/Advertising
+pattern, using payment_platform-level ratings. Verified: Index
+Exchange moved from COI 42 (Tier 3 Nurture) to COI 83 (Tier 1
+Strategic), LLM unchanged at 75 - the gap didn't just shrink, it
+flipped direction entirely, correctly reflecting genuine technical
+strength rather than an artifact of a flat rating.
+
+**A new "card" false positive, found while checking a second high
+COI in the same review.** AppCard (COI 93, `payment_platform`) is
+actually a loyalty/shopper-analytics platform for grocers, per its
+own real description - nothing about payment processing. The `card`
+keyword in the FinTech pattern is bare/unguarded, matching anywhere
+it appears as a substring - including inside the account's own name,
+"App**Card**". Important context checked before fixing this: `card`
+already has a real, working exclusion list (`cardinal`, `wildcard`,
+`cardiology`, `cardiac`, `piccard`), documented earlier this session
+- so this wasn't an overlooked keyword, just a not-yet-discovered
+specific case, exactly the same incremental process that built the
+existing list. Added `appcard` to it. Verified: AppCard now correctly
+shows `retail_platform`, industry "Advertising", COI 55 (down from
+93).
+
+**Working-style note, directly prompted by this stretch**: the
+person pointed out this documentation file itself had not been kept
+current through a long, busy stretch of work - and the very next
+task (checking whether "card" had ever been considered before) proved
+exactly why that matters. Finding the existing `card` exclusion list
+in this doc meant building on established precedent instead of either
+re-solving something already solved, or - worse - building a
+redundant, inconsistent second mechanism alongside it. This file is
+only as useful as it is current.
+
