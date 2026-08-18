@@ -692,6 +692,17 @@
       "workload_profile": "utilities_platform",
       "business_model": "Utility"
     },
+    "Ad Exchange / Real-Time Advertising Platform": {
+      "keywords": [
+        "supply-side platform",
+        "demand-side platform",
+        "ad exchange",
+        "programmatic advertising"
+      ],
+      "industry": "Media & Advertising",
+      "workload_profile": "adtech_realtime_platform",
+      "business_model": "Ad Tech Platform"
+    },
     "Media/Advertising": {
       "keywords": [
         "media",
@@ -961,6 +972,21 @@
       "database_intensity": 4,
       "operational_complexity": 4,
       "realtime_requirement": 4
+    },
+    "adtech_realtime_platform": {
+      "workloads": [
+        "Real-Time Bidding",
+        "Ad Exchange Transactions",
+        "Audience Data Matching"
+      ],
+      "workload_strength": {
+        "real_time": 5,
+        "transaction_processing": 5,
+        "api": 4
+      },
+      "database_intensity": 5,
+      "operational_complexity": 5,
+      "realtime_requirement": 5
     }
   }
 }
