@@ -928,3 +928,49 @@ re-solving something already solved, or - worse - building a
 redundant, inconsistent second mechanism alongside it. This file is
 only as useful as it is current.
 
+## SIC Code and Ownership added (2026-08-18, later still)
+
+**SIC Code fallback for industry classification** - a third-tier
+signal, used only when both the real Salesforce Industry field AND
+keyword-matching leave an account as "Unknown". Real Industry still
+wins whenever present; SIC only fills a gap neither of the stronger
+signals could. Built from a hand-made code-to-industry map covering
+codes actually observed in real data so far (602/603 banking,
+609/631 financial services/insurance, 421/422 trucking, 541/531/596
+retail, 737/738 software/business services, 873 professional
+services, 801/806 healthcare, 283 pharma, 384 medical devices,
+481/482 telecom, 491/492 utilities, 731 advertising, 781 media) -
+explicitly not an exhaustive SIC reference, and one real mapping
+error was caught before shipping: 679 was initially mapped to
+"Insurance," but it's actually the generic "Offices of Holding
+Companies, Not Elsewhere Classified" code - removed rather than left
+in, since a holding company's SIC code says nothing reliable about
+its actual industry. Tested against 3 real accounts with a SIC Code
+but no Salesforce Industry (MarketAxess, OTR Solutions, Transcard
+Payments) - all three already had industry resolved via
+keyword-matching before the SIC fallback got a chance to apply, so
+the mechanism remains logically tested but not yet proven against a
+genuine real-world trigger case. Low risk either way - purely
+additive, never overrides a working classification.
+
+**Ownership (Public/Private) added to the LLM prompt** as additional
+context, same pattern as revenue_signal. Deliberately narrower in
+scope than it might first appear - discussed directly with the user
+before building: this doesn't feed industry classification or COI
+scoring at all, its only real value is giving the model explicit
+context for why a company might genuinely lack public financial
+disclosures (the same class of problem Wawa/Total Wine hit earlier
+this session, already solved for scoring via real Employee/Revenue
+data). Its marginal value here is narrower than SIC Code's, since the
+core problem it might have helped with was already fixed - noted
+honestly rather than oversold.
+
+**Real process note**: the code for both of these was written,
+tested, and verified working - but the actual `git commit` was never
+run, and this went unnoticed through several follow-up messages
+until a direct question ("did we do a full update of design doc")
+prompted a check. `git status` remains the one place a slipped
+commit can't hide - worth checking it explicitly rather than
+assuming a fix landed just because it was verified working.
+
+
