@@ -349,7 +349,7 @@ checkpoint("About to create Overview sheet")
 
 ws_overview = wb.create_sheet("Overview")
 
-overview_headers = ["Account Name", "COI Score", "ICP Grade", "Priority Tier", "Industry", "Business Model", "Account Owner", "Account ID", "Salesforce ID"]
+overview_headers = ["Account Name", "COI Score", "ICP Grade", "Priority Tier", "Industry", "Account Owner", "Account ID", "Salesforce ID"]
 for col_idx, header in enumerate(overview_headers, start=1):
     cell = ws_overview.cell(row=1, column=col_idx)
     cell.value = header
@@ -367,7 +367,7 @@ ws_overview.auto_filter.ref = f"A1:{get_column_letter(len(overview_headers))}1"
 # university names are genuine long-tail outliers, not the norm; those
 # wrap to a second line below rather than forcing the column absurdly
 # wide for everyone else). Other columns widened proportionally.
-overview_widths = {"A": 34, "B": 15, "C": 14, "D": 25, "E": 27, "F": 27, "G": 23, "H": 18, "I": 20}
+overview_widths = {"A": 34, "B": 20, "C": 20, "D": 25, "E": 27, "F": 23, "G": 18, "H": 20}
 for col, width in overview_widths.items():
     ws_overview.column_dimensions[col].width = width
 
@@ -478,11 +478,10 @@ for i, row in call_list.iterrows():
     if tier_fill:
         tier_cell.fill = tier_fill
     ws_overview.cell(row=excel_row, column=5, value=row.get("industry", "")).font = OVERVIEW_BODY_FONT
-    ws_overview.cell(row=excel_row, column=6, value=row.get("business_model", "")).font = OVERVIEW_BODY_FONT
-    ws_overview.cell(row=excel_row, column=7, value=row.get("Account Owner", "")).font = OVERVIEW_BODY_FONT
-    ws_overview.cell(row=excel_row, column=8, value=row.get("CB Account Number", "")).font = OVERVIEW_BODY_FONT
-    ws_overview.cell(row=excel_row, column=9, value=row.get("ID (Long)", "")).font = OVERVIEW_BODY_FONT
-    for col_idx in range(2, 9):
+    ws_overview.cell(row=excel_row, column=6, value=row.get("Account Owner", "")).font = OVERVIEW_BODY_FONT
+    ws_overview.cell(row=excel_row, column=7, value=row.get("CB Account Number", "")).font = OVERVIEW_BODY_FONT
+    ws_overview.cell(row=excel_row, column=8, value=row.get("ID (Long)", "")).font = OVERVIEW_BODY_FONT
+    for col_idx in range(2, 8):
         cell = ws_overview.cell(row=excel_row, column=col_idx)
         cell.alignment = CENTER
         cell.border = BOX_BORDER
@@ -493,11 +492,11 @@ for i, row in call_list.iterrows():
 # specific run has no real values for it at all (some files, like
 # ones without a CB Account Number column, would otherwise show an
 # entirely blank column with no value to a rep).
-ws_overview.column_dimensions["I"].hidden = True
+ws_overview.column_dimensions["H"].hidden = True
 
 account_id_values = call_list.get("CB Account Number")
 if account_id_values is None or account_id_values.astype(str).isin(["", "nan", "None"]).all():
-    ws_overview.column_dimensions["H"].hidden = True
+    ws_overview.column_dimensions["G"].hidden = True
 
 ws_overview.freeze_panes = "A2"
 
