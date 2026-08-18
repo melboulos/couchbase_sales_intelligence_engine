@@ -729,3 +729,106 @@ after being shown the real code between those lines was the explanation
 actually correct. Confirming certainty ("here's exactly what's
 happening") should be reserved for cases where the actual logic has
 been seen, not inferred from where a variable name happens to appear.
+
+## Session summary (2026-08-17 / 2026-08-18) - Account ID/Salesforce ID,
+## real Employee/Revenue scoring gaps, the workloads bug, a score guide,
+## and a new Salesforce report-metadata header issue
+
+**Account ID, Salesforce ID, ICP Grade added to the AE report.**
+Confirmed `CB Account Number` (Enterprise East's field) and a genuine
+Salesforce record ID (`Account ID`/`ID (Long)`, seen in newer exports)
+are NOT the same kind of identifier - `CB Account Number` couldn't be
+found anywhere in the actual Salesforce UI. Built as two separate,
+honestly-labeled columns rather than merging them, since a downstream
+integration needs the real 18-character Salesforce ID specifically
+(the 15-character version is case-sensitive and unsafe for external
+joins - Salesforce's own guidance is to always use the 18-char form).
+ICP Grade added beside COI Score for direct comparison, per the
+person's request.
+
+**Real Employee/Annual Revenue data was never being used at all -
+now fixed, two separate gaps.** `company_size` (`enrich_account()`,
+modules/account_enrichment.py) previously came ONLY from an
+industry-list + name-keyword guess - Wawa ($18.9B revenue, 36,000
+employees) and Total Wine & More ($2.3B revenue, 4,000 employees)
+both scored `company_size=Unknown` because Retail isn't on the
+enterprise-industry list and neither name matches a keyword, despite
+real Employees/Annual Revenue data sitting unused in the same row.
+Separately, `revenue_signal` - the field that actually reaches the
+LLM prompt, unlike `company_size` - had the same class of gap.  Both
+fixed: real data takes priority when available, falling back to the
+existing heuristics otherwise. Confirmed real, broad impact on a
+58-account file: 26 of 58 accounts gained a real +5 COI point
+increase, one crossed the LLM-qualification threshold as a direct
+result, and Wawa/Total Wine both moved from COI 40 to 45 (this part)
+then to 60 (see workloads bug below).
+
+**Confirmed and fixed the magnitude-detection regex bug** - five
+unrelated real companies (PVH, TuneCore, Hess Midstream, PowerReviews,
+Tradeweb) shared an identical LLM score of 87, traced to a fixed
+score-floor override (35+27+25=87) meant only for genuine $1B+ dollar
+evidence. The regex had an optional `$` sign, so ANY large number
+(TuneCore's "10 billion tracks" - a track count, not money) could
+trigger it. Fixed to require a real dollar sign or dollar-context
+word nearby. Confirmed 11 unique accounts across two datasets were
+genuinely affected (2 false positives: TuneCore, PowerReviews),
+corrected via targeted re-run.
+
+**The biggest fix of the session: `workloads` was silently empty for
+96.5% of ALL scored accounts, across every workload type, not just
+one industry.** `apply_intelligence()` read `"workloads"` from the
+business_pattern dict, which never contains that key at all - the
+real list only exists in `WORKLOAD_PROFILES`, keyed by
+`workload_profile`. Since `workload_text` (used for keyword-based
+`workload_fit_points` scoring, the single largest COI component at
+40 points) is built by joining this list, it was always empty for
+everyone, meaning that half of the workload-fit score never had
+anything to match against, for any account, in any dataset scored
+before this fix. Confirmed real impact: Wawa and Total Wine both
+moved from COI 45 to 60 once corrected, and re-running a 58-account
+file surfaced 4 new accounts crossing the LLM-qualification
+threshold as a direct result. This affects Enterprise East and the
+original 9,758-account file too, not yet re-run for it as of this
+writing.
+
+**"HOW TO READ THE SIP SCORES" guide added to the Overview sheet** -
+plain-language ICP/COI/LLM/SIP definitions, since a rep has no way to
+know these are four deliberately independent signals otherwise (a
+company can be a poor ICP fit with strong technical signals, or vice
+versa - not a scoring flaw, the design). Took several real, genuine
+mistakes to get right, worth recording so they aren't repeated:
+merging a row only preserves the first cell's value, so combining
+label+definition text into one string BEFORE merging is required, not
+after; setting a border only on a merged range's first/last cell
+leaves the middle columns unbordered, silently breaking the visible
+line - every column in the range needs the border set explicitly, not
+just the endpoints; and a border fix isn't real until it's actually
+been rebuilt into the output file and looked at directly - confirming
+a patch script printed "Applied" is not the same as confirming the
+resulting Excel file looks right. Final version: one single merged
+cell (not five), positioned beside the data starting at column J
+(not above it, so it doesn't require scrolling past to reach
+accounts), with one continuous outer border and no internal lines.
+
+**New Salesforce report-metadata header issue, found on Gary
+Peterson's export (same report template as previously-working
+files).** Some exports include a title, generation timestamp, and a
+"Filtered By" section with filter criteria above the real header row
+- confirmed 9 such rows in this specific case. `load_accounts()` now
+detects this (checks if most columns came back as `Unnamed:`) and
+re-scans for the row containing `"Account Name"` rather than assuming
+a fixed number of rows to skip, since that count varies by export
+even from the same report template. Fully backward-compatible - only
+activates when needed, tested against the real file plus edge cases
+(normal file, and a file where "Account Name" can't be found at all)
+before shipping.
+
+**Working-style note from this session, worth remembering**: patch
+scripts that fail to match their target text can fail SILENTLY if the
+`rm`/compile-check steps that follow don't depend on the patch having
+actually succeeded - a "Syntax OK" print only confirms the file is
+still valid Python, not that the intended change is actually in it.
+Several real rounds of confusion this session traced back to exactly
+this - assuming a patch worked because later steps in the same
+command block completed without error, rather than directly
+confirming the specific new code is present.
