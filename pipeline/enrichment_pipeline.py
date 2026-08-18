@@ -63,4 +63,30 @@ def enrich_company_intelligence(accounts):
             accounts["industry"]
         )
     )
+
+    # =================================================
+    # REAL SALESFORCE INDUSTRY OVERRIDE
+    #
+    # A human-set Salesforce field beats any text-based guess from
+    # either classification stage above. Confirmed real false
+    # positives this fixes (2026-08-18): Wegmans Food Markets was
+    # misclassified as "Healthcare" via a "healthier" substring
+    # collision in marketing copy (real SF Industry: "Retail");
+    # Envestnet and Interactive Brokers Group were also
+    # misclassified as "Healthcare" via a second, unexplained
+    # mechanism (real SF Industry: "Financial Software" / "Finance").
+    # Only applies when this file actually has a real, non-blank
+    # Industry column - files without it are completely unaffected.
+    # =================================================
+    if "Industry" in accounts.columns:
+        real_industry = accounts["Industry"].astype(str).str.strip()
+        has_real_industry = (
+            real_industry.notna()
+            & (real_industry != "")
+            & (real_industry.str.lower() != "nan")
+        )
+        accounts["industry"] = accounts["industry"].where(
+            ~has_real_industry, real_industry
+        )
+
     return accounts
