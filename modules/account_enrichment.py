@@ -126,8 +126,29 @@ def enrich_account(row):
     # REVENUE SIGNAL
     # =====================================================
 
+    # Real Annual Revenue (when available) takes priority over the
+    # company_signal-based guess below, which only measures keyword-
+    # match confidence, not actual company scale. This is the field
+    # that actually reaches the LLM prompt (modules/llm_prompt_builder.py)
+    # - company_size above does NOT, so fixing revenue_signal is what
+    # actually improves the Call Brief's generated narrative, not just
+    # the deterministic COI score.
+    LARGE_SCALE_REVENUE_THRESHOLD = 1_000_000_000  # $1B
+    MEDIUM_SCALE_REVENUE_THRESHOLD = 10_000_000     # $10M
 
-    if company_signal >= 20:
+    real_revenue = row.get("Annual Revenue (converted)", row.get("Annual Revenue"))
+    real_revenue_signal = None
+    try:
+        if real_revenue is not None and float(real_revenue) >= LARGE_SCALE_REVENUE_THRESHOLD:
+            real_revenue_signal = "High"
+        elif real_revenue is not None and float(real_revenue) >= MEDIUM_SCALE_REVENUE_THRESHOLD:
+            real_revenue_signal = "Medium"
+    except (ValueError, TypeError):
+        pass
+
+    if real_revenue_signal:
+        revenue_signal = real_revenue_signal
+    elif company_signal >= 20:
         revenue_signal = "High"
 
     elif company_signal >= 10:
