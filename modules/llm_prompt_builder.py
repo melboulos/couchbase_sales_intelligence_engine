@@ -487,6 +487,9 @@ Engineering Signal:
 Revenue Signal:
 {row.get("revenue_signal","Unknown")}
 
+Ownership:
+{row.get("Ownership","Unknown")}
+
 AI Signal:
 {row.get("ai_signal","Unknown")}
 

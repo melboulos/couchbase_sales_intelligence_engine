@@ -223,7 +223,7 @@ KEYWORD_FALSE_POSITIVE_EXCLUSIONS = {
     # "piccard" added after web-search snippet spot check found
     # real hospital snippets mentioning "Cardiac & Pulmonary
     # Rehab" and an address fragment "1300 Piccard Dr."
-    "card": ["cardinal", "wildcard", "cardiology", "cardiac", "piccard"],
+    "card": ["cardinal", "wildcard", "cardiology", "cardiac", "piccard", "appcard"],
 
     # "media" is a substring of several common, unrelated words
     # and corporate-structuring terms (remedial, mediation,
