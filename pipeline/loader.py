@@ -146,4 +146,54 @@ def load_accounts(input_file):
             "blank for every account in this run."
         )
 
+    # =====================================================
+    # PARENT-COMPANY ROLLUP DETECTION
+    #
+    # Confirmed real case (2026-08-19): Salesforce can show a
+    # subsidiary account the PARENT company's aggregate
+    # Employees/Revenue figures rather than its own - confirmed via
+    # real Amazon subsidiaries (Audible, Vadata, Woot, Sqrrl Data,
+    # Servicios Comerciales Amazon Mexico) all sharing an identical
+    # 1,525,003 employee figure under the same real Parent Account
+    # ID. Only suppresses figures for accounts that share an
+    # IDENTICAL value with at least one sibling under the same
+    # parent - most parent-having accounts have their own genuine,
+    # different figures and are left untouched. Suppressed accounts
+    # fall back to the existing industry/keyword-based heuristic for
+    # company_size and revenue_signal, same as any file lacking real
+    # Employees/Revenue data at all.
+    # =====================================================
+    if "Parent Account ID" in accounts.columns and "Employees" in accounts.columns:
+        real_parent_mask = (
+            accounts["Parent Account ID"].notna()
+            & (accounts["Parent Account ID"] != "000000000000000")
+        )
+        has_parent = accounts[real_parent_mask]
+
+        suppressed_count = 0
+        for parent_id, group in has_parent.groupby("Parent Account ID"):
+            if len(group) < 2:
+                continue
+            emp_counts = group["Employees"].value_counts()
+            duplicated_emp_values = emp_counts[emp_counts >= 2].index
+            if len(duplicated_emp_values) == 0:
+                continue
+            affected_idx = group[group["Employees"].isin(duplicated_emp_values)].index
+            accounts.loc[affected_idx, "Employees"] = None
+            if "Annual Revenue" in accounts.columns:
+                accounts.loc[affected_idx, "Annual Revenue"] = None
+            if "Annual Revenue (converted)" in accounts.columns:
+                accounts.loc[affected_idx, "Annual Revenue (converted)"] = None
+            suppressed_count += len(affected_idx)
+
+        if suppressed_count > 0:
+            print(
+                f"Note: suppressed Employees/Revenue for {suppressed_count} "
+                f"account(s) showing a parent-company rollup signature "
+                f"(identical figures shared with a sibling under the same "
+                f"Parent Account ID) - these accounts will use the "
+                f"industry/keyword-based fallback instead of the "
+                f"(unreliable, inherited) real figures."
+            )
+
     return accounts
