@@ -208,7 +208,24 @@ def _run_llm_batch(rows, kept_df, existing_columns, full_existing_results):
                 ).set_index("Account Name", drop=False).astype(object)
 
                 if len(partial_df) > 0:
-                    partial_indexed = partial_df.set_index(
+                    # Confirmed real crash (2026-08-19): two genuinely
+                    # different Salesforce records can share the same
+                    # Account Name (confirmed real case: Sunoco,
+                    # Citadel Studios - different COI scores, so
+                    # genuinely different entities, not accidental
+                    # duplicate rows). Since the merge key here is
+                    # Account Name, not a unique account ID, .update()
+                    # requires a unique index - drop_duplicates
+                    # (keep="first") avoids the crash, at the cost of
+                    # both accounts sharing a name receiving the same
+                    # merged LLM result. Same pre-existing constraint
+                    # already handled in the final write below (see
+                    # that comment for the full explanation) - this
+                    # was just missing here, in the periodic
+                    # checkpoint save, until this crash surfaced it.
+                    partial_indexed = partial_df.drop_duplicates(
+                        subset="Account Name", keep="first"
+                    ).set_index(
                         "Account Name", drop=False
                     ).astype(object)
                     combined.update(partial_indexed)
@@ -363,9 +380,20 @@ def validate_accounts(accounts):
         existing_indexed = existing_results.set_index(
             "Account Name", drop=False
         ).astype(object)
-        new_indexed = new_df.set_index(
+        # Same fix as elsewhere in this file (periodic checkpoint
+        # save, final write below) - a third location hitting the
+        # identical duplicate-Account-Name crash (confirmed real
+        # case, 2026-08-19: Sunoco, Citadel Studios, Autonomo, DB
+        # Schenker USA all appear twice with different underlying
+        # data in the same real file). new_df needs the same
+        # drop_duplicates treatment as existing_results before
+        # either side of an .update() call.
+        new_df_deduped = new_df.drop_duplicates(
+            subset="Account Name", keep="first"
+        ) if len(new_df) > 0 else new_df
+        new_indexed = new_df_deduped.set_index(
             "Account Name", drop=False
-        ).astype(object) if len(new_df) > 0 else new_df
+        ).astype(object) if len(new_df_deduped) > 0 else new_df_deduped
 
         if len(new_indexed) > 0:
             existing_indexed.update(new_indexed)

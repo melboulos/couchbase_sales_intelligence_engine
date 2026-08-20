@@ -1,7 +1,7 @@
 import pandas as pd
 from modules.company_normalizer import normalize_account_name
 from modules.industry_classifier import classify_industry
-from modules.company_intelligence import analyze_company
+from modules.company_intelligence import analyze_company, _match_business_pattern, BUSINESS_PATTERNS
 
 
 # =====================================================
@@ -151,5 +151,70 @@ def enrich_company_intelligence(accounts):
         "Logistics & Transportation": "Logistics",
     }
     accounts["industry"] = accounts["industry"].replace(INDUSTRY_SHORTEN_MAP)
+
+    # =================================================
+    # WORKLOAD PROFILE RE-DERIVATION
+    #
+    # Confirmed real, major finding (2026-08-19): workload_profile is
+    # only ever set once via keyword-matching, BEFORE the real
+    # Salesforce Industry override above runs - and nothing ever
+    # re-derives it afterward. When the real Industry corrects a
+    # wrong keyword guess (confirmed happening for the majority of
+    # accounts with both fields set - 2,871 of 3,850 in a real
+    # 9,589-account file), the industry LABEL gets fixed but the
+    # actual technical SCORING keeps running on the original, wrong
+    # profile (confirmed real case: Regis Corporation, a hair salon
+    # chain, correctly relabeled "Barber Shops & Beauty Salons" but
+    # still scored as if it were "media_platform").
+    #
+    # Deliberately NOT a rigid Industry->workload_profile map (a
+    # Software company can legitimately have a payment_platform
+    # workload if there's real evidence for it - Industry is a
+    # contextual signal, workload_profile is a technical hypothesis,
+    # not the same thing). Instead, re-runs the SAME keyword-matching
+    # logic already used elsewhere, with the corrected industry
+    # added as additional matching text alongside the account name -
+    # preserving legitimate exceptions where the account's own name
+    # still supports the original workload, while correcting cases
+    # where nothing about the real industry supports it.
+    #
+    # Verified via a controlled before/after analysis before
+    # shipping: of 2,871 real mismatched accounts, 1,184 (41%) showed
+    # material COI inflation (10+ points) from the wrong profile, 63
+    # showed the workload had been suppressing a legitimate score,
+    # and 12 accounts had already gone through real LLM validation
+    # under a qualification that would not have qualified under
+    # corrected scoring.
+    # =================================================
+    if "workload_profile" in accounts.columns:
+        profile_to_industries = {}
+        for _pattern_name, _pattern_data in BUSINESS_PATTERNS.items():
+            _profile = _pattern_data.get("workload_profile")
+            _industry = _pattern_data.get("industry")
+            profile_to_industries.setdefault(_profile, set()).add(_industry)
+
+        for idx, row in accounts.iterrows():
+            current_profile = row.get("workload_profile")
+            current_industry = row.get("industry")
+            if pd.isna(current_profile) or current_profile == "" or pd.isna(current_industry):
+                continue
+
+            expected_industries = profile_to_industries.get(current_profile, set())
+            if current_industry in expected_industries:
+                continue
+
+            account_name = str(row.get("Account Name", "")).lower()
+            combined_text = account_name + " " + str(current_industry).lower()
+            match_result = _match_business_pattern(combined_text, "industry-re-derivation")
+
+            if match_result is not None:
+                accounts.at[idx, "workload_profile"] = match_result.get("workload_profile")
+                accounts.at[idx, "database_intensity"] = match_result.get("database_intensity")
+                accounts.at[idx, "operational_complexity"] = match_result.get("operational_complexity")
+                accounts.at[idx, "realtime_requirement"] = match_result.get("realtime_requirement")
+                accounts.at[idx, "workloads"] = match_result.get("workloads", [])
+            else:
+                accounts.at[idx, "workload_profile"] = ""
+                accounts.at[idx, "workloads"] = []
 
     return accounts
