@@ -420,6 +420,44 @@ def requires_care_sibling_context(keyword, text):
 
 
 # =====================================================
+# "MEDIA" SIBLING-KEYWORD RULE (web-search fallback only)
+#
+# Same underlying problem as "power"/"care" above. Confirmed real
+# false positive (2026-08-20): Regis Corporation, a hair salon
+# chain, matched "media" purely from a press-contact section in
+# its own web text ("News & Media: mediarelations@regiscorp.com")
+# - a company directory label, not any genuine media/advertising
+# business content.
+#
+# Same fix philosophy as "care": rather than an unbounded
+# exclusion list (this kind of press-contact/"News & Media"
+# boilerplate is common across countless unrelated companies,
+# not a short enumerable list), require "media" to co-occur with
+# one of its own pattern siblings ("advertising", "communications
+# group", "broadcast" - all keywords in the same Media/Advertising
+# pattern). Every genuine media/advertising company already seen
+# matches on real advertising or broadcast content elsewhere in
+# the same text; it's specifically the false positives that have
+# "media" isolated with none of its siblings anywhere nearby.
+# Tested against both the real Regis false positive and a genuine
+# media company's real text before shipping.
+# =====================================================
+
+MEDIA_SIBLING_KEYWORDS = ["advertising", "communications group", "broadcast"]
+
+
+def requires_media_sibling_context(keyword, text):
+    """
+    Returns True if this keyword match should be REJECTED for
+    lack of supporting context. Only applies to "media" - every
+    other keyword passes through unaffected.
+    """
+    if keyword != "media":
+        return False
+    return not any(term in text for term in MEDIA_SIBLING_KEYWORDS)
+
+
+# =====================================================
 # WORKLOAD STRENGTH LABEL
 # =====================================================
 
@@ -542,11 +580,21 @@ def _match_business_pattern(text, source_label):
                 continue
             if requires_care_sibling_context(keyword, text):
                 continue
+            if requires_media_sibling_context(keyword, text):
+                continue
 
             result = _default_result()
+            # Confirmed real value (2026-08-20): the reason string
+            # previously only recorded the source and pattern name,
+            # not which specific keyword actually triggered the
+            # match - making it hard to investigate the next
+            # unexpected classification without re-running this
+            # exact function by hand. Now includes the literal
+            # matched keyword directly in the audit trail.
             return apply_intelligence(
                 result, data,
-                f"Business pattern match ({source_label}): {model}"
+                f"Business pattern match ({source_label}): {model} "
+                f"[matched keyword: '{keyword}']"
             )
 
     return None

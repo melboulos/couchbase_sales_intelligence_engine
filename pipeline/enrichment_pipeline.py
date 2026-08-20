@@ -138,20 +138,6 @@ def enrich_company_intelligence(accounts):
             ~has_real_industry, real_industry
         )
 
-    # Shorten verbose real Salesforce industry labels for display -
-    # the account manager's own detailed categorization is still
-    # useful, but "Customer Relationship Management (CRM) Software"
-    # is too long to read comfortably in a table column.
-    INDUSTRY_SHORTEN_MAP = {
-        "Customer Relationship Management (CRM) Software": "CRM Software",
-        "Credit Cards & Transaction Processing": "Payment Processing",
-        "Hospitals & Physicians Clinics": "Healthcare",
-        "Advertising & Marketing": "Advertising",
-        "Freight & Logistics Services": "Freight",
-        "Logistics & Transportation": "Logistics",
-    }
-    accounts["industry"] = accounts["industry"].replace(INDUSTRY_SHORTEN_MAP)
-
     # =================================================
     # WORKLOAD PROFILE RE-DERIVATION
     #
@@ -185,7 +171,48 @@ def enrich_company_intelligence(accounts):
     # and 12 accounts had already gone through real LLM validation
     # under a qualification that would not have qualified under
     # corrected scoring.
+    #
+    # CRITICAL: this MUST run before the industry-shortening step
+    # below, using the full, un-shortened industry string - not
+    # after. Confirmed real regression (2026-08-19): running this
+    # after shortening broke the Ad Exchange pattern fix from
+    # earlier - "Advertising & Marketing" shortens to "Advertising",
+    # which no longer exactly matches the pattern's own stored
+    # industry ("Media & Advertising"), triggering an unnecessary
+    # re-match that only has the account name + industry text
+    # available (not the original web-search evidence, e.g. "supply-
+    # side platform", that correctly identified Index Exchange as
+    # ad-tech in the first place) - so it fell back to the more
+    # generic Media/Advertising pattern instead, undoing the earlier
+    # fix. Running this step first, against the real industry text,
+    # avoids the false mismatch entirely.
     # =================================================
+    # Confirmed real regression (2026-08-19): the original mismatch
+    # check below required an EXACT string match between the
+    # account's real industry and the pattern's own stored industry
+    # label. But real Salesforce industry values almost never match
+    # our pattern labels verbatim even when describing the same
+    # thing - Index Exchange's real "Advertising & Marketing" never
+    # exactly equals the Ad Exchange pattern's own "Media &
+    # Advertising", so the exact-match check incorrectly flagged a
+    # mismatch and undid the correct classification, falling back to
+    # a more generic pattern. Fixed with a looser, word-overlap
+    # comparison instead of exact equality - tested against all
+    # known real cases before shipping: correctly treats "Advertising
+    # & Marketing" / "Media & Advertising" as compatible (share
+    # "Advertising"), while still correctly flagging genuine
+    # mismatches like "Barber Shops & Beauty Salons" against "Media &
+    # Advertising" (no shared words) and "Real Estate" against
+    # "Insurance" (no shared words).
+    def _industries_compatible(account_industry, pattern_industries):
+        stopwords = {"and", "services", "the", "&"}
+        account_words = set(str(account_industry).lower().replace("&", " ").split()) - stopwords
+        for pattern_industry in pattern_industries:
+            pattern_words = set(str(pattern_industry).lower().replace("&", " ").split()) - stopwords
+            if account_words & pattern_words:
+                return True
+        return False
+
     if "workload_profile" in accounts.columns:
         profile_to_industries = {}
         for _pattern_name, _pattern_data in BUSINESS_PATTERNS.items():
@@ -200,7 +227,7 @@ def enrich_company_intelligence(accounts):
                 continue
 
             expected_industries = profile_to_industries.get(current_profile, set())
-            if current_industry in expected_industries:
+            if _industries_compatible(current_industry, expected_industries):
                 continue
 
             account_name = str(row.get("Account Name", "")).lower()
@@ -216,5 +243,21 @@ def enrich_company_intelligence(accounts):
             else:
                 accounts.at[idx, "workload_profile"] = ""
                 accounts.at[idx, "workloads"] = []
+
+    # Shorten verbose real Salesforce industry labels for display -
+    # the account manager's own detailed categorization is still
+    # useful, but "Customer Relationship Management (CRM) Software"
+    # is too long to read comfortably in a table column. Runs AFTER
+    # workload re-derivation above (see the critical note there for
+    # why the order matters).
+    INDUSTRY_SHORTEN_MAP = {
+        "Customer Relationship Management (CRM) Software": "CRM Software",
+        "Credit Cards & Transaction Processing": "Payment Processing",
+        "Hospitals & Physicians Clinics": "Healthcare",
+        "Advertising & Marketing": "Advertising",
+        "Freight & Logistics Services": "Freight",
+        "Logistics & Transportation": "Logistics",
+    }
+    accounts["industry"] = accounts["industry"].replace(INDUSTRY_SHORTEN_MAP)
 
     return accounts
