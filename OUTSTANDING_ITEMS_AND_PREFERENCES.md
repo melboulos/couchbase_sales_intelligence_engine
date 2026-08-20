@@ -973,4 +973,118 @@ prompted a check. `git status` remains the one place a slipped
 commit can't hide - worth checking it explicitly rather than
 assuming a fix landed just because it was verified working.
 
+## Session continuation (2026-08-19) - the parent-rollup fix, the
+## workload_profile re-derivation fix, and a major architectural
+## finding about the ratings table itself
+
+**New file: `Jirvi_Accounts-2026-08-19.xlsx`, 9,589 accounts.**
+
+**Parent-company rollup detection added** to `pipeline/loader.py`.
+Confirmed real case: several genuine Amazon subsidiaries (Audible,
+Vadata, Woot, Sqrrl Data, Servicios Comerciales Amazon Mexico) all
+shared an identical 1,525,003-employee figure inherited from the
+parent account, not their own real size. Only suppresses
+Employees/Revenue for accounts sharing an identical value with a
+sibling under the same real Parent Account ID (146 of 9,589
+accounts) - accounts with a parent but their own genuine, different
+figures are untouched. A broader dataset-wide duplicate-value check
+was considered and found to only catch 2 additional accounts -
+judged not worth the added complexity.
+
+**Major finding, driven entirely by the user's own analysis of
+Josh's account list**: independently noticed Tier 3 accounts
+averaging a *higher* LLM score than Tier 1 in a 22-account real
+sample, flagged Index Exchange as the standout anomaly, and asked
+whether COI was systematically undervaluing real-time
+media/ad-tech platforms. This led directly to the
+`adtech_realtime_platform` pattern fix (documented in the previous
+session's entry) and, from there, to two further, larger findings
+investigated this session:
+
+**Finding 1 - workload_profile re-derivation.** `workload_profile`
+is only ever set once via keyword-matching, before the real
+Salesforce Industry override runs - nothing re-derives it
+afterward. Confirmed real case: Regis Corporation, correctly
+relabeled "Barber Shops & Beauty Salons," was still scored as if it
+were `media_platform`. Measured before fixing: of 2,871 real
+accounts with both fields set (in the new 9,589-account file), the
+industry did not match what the assigned workload_profile would
+normally imply. A controlled before/after test (re-running the
+existing keyword-matching logic with the corrected industry added
+as additional matching text, not a rigid industry->profile map -
+preserving legitimate exceptions where an account's own name still
+supports its current profile) found: 1,184 (41%) materially
+inflated by the wrong profile, 1,624 stable, 63 newly elevated
+(the wrong profile had been suppressing a legitimate score). 12
+accounts had already gone through real, paid LLM validation under a
+qualification that should not have occurred under corrected
+scoring.
+
+Shipped as a new step in `pipeline/enrichment_pipeline.py`, running
+after the real Industry override and SIC Code fallback. Verified in
+the real production run: qualifying accounts dropped from 3,768 to
+2,347 (37.7% reduction), estimated cost dropped from $7.28 to
+$4.53. Confirmed the existing checkpoint-reuse architecture already
+handles this correctly without further changes - `llm_accounts` is
+derived from `llm_candidates`, which is itself filtered by the
+current, corrected `run_llm` gate each run, so stale results sitting
+in the checkpoint for no-longer-qualifying accounts are automatically
+excluded from the final report rather than needing manual cleanup.
+
+**Finding 2 - the ratings table itself (CONFIRMED, HIGH SEVERITY,
+NOT YET FIXED).** While investigating whether the LLM_THRESHOLD (40,
+deliberately tied to Tier 3's own COI boundary - not arbitrary)
+still made sense post-fix, found a large, suspicious cluster of
+accounts landing on the exact value 42 (186 of them). Traced this to
+the workload_profiles' own `database_intensity` /
+`operational_complexity` / `realtime_requirement` ratings: **all 14
+workload profiles collapse into only 4 distinct rating
+combinations**:
+- (5,5,5): `payment_platform`, `adtech_realtime_platform` -
+  intentional, explicitly documented rationale (the real supply-side
+  platform evidence found for Index Exchange)
+- (3,3,3): `media_platform`, `pharma_device_platform` - unrelated
+  domains, no documented rationale for sharing a rating
+- (3,3,2): `utilities_platform`, `insurance_platform` - same issue
+- (4,4,4): `telecom_platform`, `media_entertainment_platform` - same
+  issue
+
+Only the first pairing has ever been independently justified against
+real evidence. The other three look like they were assigned from a
+small set of generic templates (roughly "high/high/high",
+"medium/medium/medium", "medium/medium/low") rather than derived
+per-profile from real technical evidence - the exact same root cause
+already confirmed for `media_platform` specifically, now shown to be
+systemic across the whole table, not an isolated case.
+
+This matters because these ratings aren't decorative - they feed
+directly into COI, which determines LLM qualification. A generic
+template shared across unrelated industries means the qualification
+gate itself may be running on unverified assumptions for a
+potentially large share of accounts.
+
+**Deliberately NOT patched ad hoc.** Per direct discussion: freeze
+the current state, document the finding, and design a proper
+evidence-based rating review later - the same "measure before
+touching" discipline used throughout this session, applied to the
+ratings table's own foundations rather than to any single account.
+The standard for the eventual review: not "should ratings be
+unique," but "can the rating assigned to each profile be
+independently explained and substantiated" - the
+payment_platform/adtech_realtime_platform pairing shows that shared
+ratings aren't inherently wrong when there's real evidence behind
+them.
+
+**Framing worth preserving**: this is genuinely a three-layer
+problem, not one bug - (1) workload_profile can survive a keyword
+guess after Industry is corrected [Finding 1, now fixed], (2) even a
+correctly-assigned workload_profile's own ratings may not be
+evidence-based [Finding 2, confirmed, not yet fixed], (3) both feed
+COI, which gates LLM qualification. Also worth noting as a milestone
+in its own right: this is SIP surfacing weaknesses in its own scoring
+methodology through direct use, not just producing scores - that
+kind of self-directed validation is what will make the eventual
+rating framework meaningfully more defensible than the current one.
+
+
 

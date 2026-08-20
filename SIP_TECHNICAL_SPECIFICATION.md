@@ -284,9 +284,17 @@ to the generic per-workload suggestion.
 - Several real Salesforce fields are read into the pipeline but not
   yet used for anything (Type, Email Domain, Parent Account ID,
   Ticker Symbol, LinkedIn/ZoomInfo IDs) - see §3.
-- Only `media_platform`'s ratings have been directly audited against
-  real outcome data; other workload_profiles have not received the
-  same scrutiny.
+- CONFIRMED, HIGH SEVERITY: all 14 workload_profiles collapse into
+  only 4 distinct rating combinations. Only one pairing
+  (payment_platform / adtech_realtime_platform, both 5/5/5) has a
+  documented, evidence-based rationale; the other three
+  (media_platform/pharma_device_platform at 3/3/3,
+  utilities_platform/insurance_platform at 3/3/2,
+  telecom_platform/media_entertainment_platform at 4/4/4) show no
+  evidence of being independently derived per profile. Deliberately
+  not patched ad hoc - see OUTSTANDING_ITEMS_AND_PREFERENCES.md for
+  the full finding and the reasoning for freezing rather than
+  quick-fixing this.
 - Only one bare single-word keyword (`card`) has been found to have
   an unguarded substring risk via real-world discovery; the full
   keyword list has not been proactively audited for others.
