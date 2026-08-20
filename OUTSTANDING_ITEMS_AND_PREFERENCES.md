@@ -1086,5 +1086,129 @@ methodology through direct use, not just producing scores - that
 kind of self-directed validation is what will make the eventual
 rating framework meaningfully more defensible than the current one.
 
+## The word-overlap regression, the four-bucket empirical analysis,
+## and the Layer 1/2/3 architectural reframing (2026-08-19/20)
+
+**A real regression, found immediately after shipping the workload
+re-derivation fix.** Re-running Jboulos's file with the fix in place
+showed Index Exchange and AppCard - our two headline findings from
+earlier - had reverted from their correct, specific classifications
+back to the generic `media_platform`. Root cause: the re-derivation
+step's mismatch check required an EXACT string match between an
+account's real industry and the pattern's own stored industry label.
+Index Exchange's real Salesforce Industry ("Advertising & Marketing")
+never exactly equals the Ad Exchange pattern's own stored industry
+("Media & Advertising") - similar concept, different string - so the
+exact-match check incorrectly saw a mismatch and re-triggered
+classification, which then only had the account name + industry text
+available (not the original web-search evidence, "supply-side
+platform", that correctly identified it as ad-tech in the first
+place), so it fell back to the more generic pattern.
+
+**First attempted fix (reordering) did not work.** Initially assumed
+the industry-shortening step running before the mismatch check was
+the cause. Reordered so re-derivation runs on the un-shortened
+industry first. Re-tested: still broken - confirmed the real cause
+was deeper than ordering, since even the RAW, un-shortened Salesforce
+Industry field never exactly matched the pattern's stored industry
+either.
+
+**Second attempted fix (word-overlap matching), tested via a
+deliberately narrow, isolated verification before trusting it or
+re-running any expensive LLM work.** Replaced exact-string equality
+with a looser check: do the two industry strings share at least one
+significant word in common (stripped of stopwords). Verified
+directly against the real, already-shipped function (no production
+code changed, no LLM calls made) across 6 real accounts:
+- Beazer Homes, Regis Corporation, Long & Foster (known genuine
+  mismatches): correctly identified as NOT compatible in all three -
+  the looser check did not introduce new false negatives here.
+- Woodmen of the World: correctly compatible (real fix from earlier
+  still holds).
+- **Index Exchange, AppCard: INCORRECTLY compatible with
+  `media_platform`** - word-overlap matching cannot distinguish "a
+  generically plausible match" from "the best, most specific match."
+  `media_platform`'s own stored industry ("Media & Advertising")
+  shares the word "Advertising" with Index Exchange's real industry,
+  same as the more specific `adtech_realtime_platform` pattern would.
+  Once an account is already on the generic profile, this check has
+  no way to recognize a more specific, better-supported
+  classification exists and should be preferred instead.
+
+**Conclusion: word-overlap matching is a real, useful guardrail
+against gross mismatches, but not a solution to the underlying
+problem** - it operates entirely on raw industry strings (what a
+colleague, consulted separately, termed "Layer 1: raw evidence"),
+when the real question that needs answering is which NORMALIZED
+BUSINESS SIGNAL a company's real, combined evidence actually
+supports. Documented here as a known limitation of the current code,
+not something to patch further at the string-matching level.
+
+**A genuinely valuable architectural reframing came out of this**,
+via direct discussion with the user's separate collaborator (not
+built or verified by this session - a design proposal to evaluate,
+not an implemented fact): SIP currently conflates three layers that
+should be separate:
+1. Raw evidence (Salesforce Industry, company name, web research)
+2. Normalized business signals (a small, composable vocabulary -
+   e.g. "advertising", "ad_exchange", "real_time_data",
+   "payments", "fraud_detection" - potentially multiple signals per
+   account, reusable across workload profiles rather than
+   independently re-encoded inside each one)
+3. Technical workload (the current workload_profile categories)
+
+The core critique: Industry is evidence toward a workload
+hypothesis, not the workload itself - two companies in the same
+Industry can have completely different real technical workloads, so
+a direct Industry->workload_profile mapping (rigid OR loose
+string-matching) was never structurally sound regardless of exact
+implementation. The proposal is to materialize Layer 2 as a stored,
+inspectable intermediate result (not a query-time-only calculation),
+derived via rules/semantic evidence rather than a hand-maintained
+200+ entry taxonomy - giving a real audit trail ("Salesforce says X,
+web evidence indicates Y, SIP identified signals A/B/C, those
+signals support workload Z") in place of today's un-inspectable
+single conclusion. Also directly connects to the ratings-table
+finding from the previous session entry: a Layer 2 signal vocabulary
+would let ratings be justified per-signal ("what evidence caused
+high real-time need?") rather than as an opaque per-profile constant.
+
+**Empirical baseline gathered before any further design work**, per
+direct agreement that this should come first: categorized all 209
+real, distinct Salesforce Industry values seen across every file
+this session into four buckets, using checkable rules rather than
+judgment calls (first pass had a real flaw, caught and corrected
+before trusting the numbers - "any comma present" incorrectly
+flagged naturally-worded single categories like "Electricity, Oil &
+Gas" as composite; corrected to require a comma-separated part to
+also exist as its own standalone value elsewhere in the real data):
+
+| Category | Count | % |
+|---|---|---|
+| Malformed/corrupt | 1 | 0.5% |
+| Genuine composite (comma-joined) | 10 | 4.8% |
+| Formatting variation | 2 | 1.0% |
+| Semantic equivalent (share significant words) | 117 | 56.0% |
+| Genuinely distinct | 79 | 37.8% |
+
+Simple string cleanup (malformed + formatting) accounts for only
+1.5% of the real complexity. The overwhelming majority (56%) is
+genuine semantic-equivalence work - real, different-but-related
+business descriptions a normalization layer would need to actually
+understand, not just clean up - directly validating that the
+Layer 1/2/3 reframing targets where the real complexity actually
+lives, rather than a data-cleaning problem that a few formatting
+rules could resolve.
+
+**Status: paused here, deliberately.** Per direct agreement: no
+further code changes, no re-running the 3,850-account dataset, until
+the Layer 2 vocabulary question is actually designed - specifically,
+going one level deeper into the 117-value semantic-equivalent bucket
+to see whether it collapses into something like 20 meaningful
+normalized signals or something closer to 80, which was identified
+as the natural next empirical step before any implementation
+decision.
+
+
 
 
